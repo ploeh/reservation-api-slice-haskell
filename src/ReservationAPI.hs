@@ -9,7 +9,8 @@ import GHC.Generics
 import Servant
 
 data Reservation = Reservation
-  { reservationDate :: String
+  { reservationId :: String
+  , reservationDate :: String
   , reservationName :: String
   , reservationEmail :: String
   , reservationQuantity :: Int
@@ -32,7 +33,7 @@ type ReservationAPI =
   :<|> ReqBody '[JSON] Reservation :> Post '[JSON] ()
 
 reservation :: String -> Reservation
-reservation rid = Reservation "2019-10-04" rid "ploeh@example.com" 3
+reservation rid = Reservation "42" "2019-10-04" rid "ploeh@example.com" 3
 
 reservationServer :: Server ReservationAPI
 reservationServer = getReservation :<|> postReservation
