@@ -4,12 +4,13 @@
 module ReservationAPI where
 
 import Data.Char
+import Data.UUID
 import Data.Aeson
 import GHC.Generics
 import Servant
 
 data Reservation = Reservation
-  { reservationId :: String
+  { reservationId :: UUID
   , reservationDate :: String
   , reservationName :: String
   , reservationEmail :: String
@@ -29,11 +30,11 @@ instance FromJSON Reservation where
   parseJSON = genericParseJSON reservationOptions
 
 type ReservationAPI =
-       Capture "reservationId" String :> Get '[JSON] Reservation
+       Capture "reservationId" UUID :> Get '[JSON] Reservation
   :<|> ReqBody '[JSON] Reservation :> Post '[JSON] ()
 
-reservation :: String -> Reservation
-reservation rid = Reservation "42" "2019-10-04" rid "ploeh@example.com" 3
+reservation :: UUID -> Reservation
+reservation rid = Reservation rid "2019-10-04" "Ploeh" "ploeh@example.com" 3
 
 reservationServer :: Server ReservationAPI
 reservationServer = getReservation :<|> postReservation

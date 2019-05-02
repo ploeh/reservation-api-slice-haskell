@@ -19,6 +19,7 @@ library
                      , API
                      , ReservationAPI
   build-depends:       base >= 4.7 && < 5
+                     , uuid
                      , aeson
                      , servant-server
                      , wai
@@ -40,6 +41,7 @@ test-suite RestaurantReservation.Test
   other-modules:       ValidationSpec
                      , ReservationAPISpec
   build-depends:       base
+                     , uuid
                      , RestaurantReservation
                      , hspec
                      , hspec-wai
