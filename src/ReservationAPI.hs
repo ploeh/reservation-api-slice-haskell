@@ -1,5 +1,6 @@
 {-# LANGUAGE DataKinds     #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module ReservationAPI where
@@ -11,6 +12,8 @@ import Data.Time.Calendar
 import Data.Time.LocalTime
 import Data.Aeson
 import GHC.Generics
+import Control.Monad.IO.Class
+import Control.Monad.Trans.Free
 import Servant
 
 newtype ZonedTimeStructEq =
@@ -29,6 +32,26 @@ data Reservation = Reservation
   , reservationQuantity :: Int
   } deriving (Eq, Show, Generic)
 
+data ReservationsInstruction next =
+    ReadReservations ZonedTimeStructEq ([Reservation] -> next)
+  | CreateReservation Reservation next
+  deriving Functor
+
+type ReservationsProgram = Free ReservationsInstruction
+
+readReservations :: ZonedTimeStructEq -> ReservationsProgram [Reservation]
+readReservations t = liftF $ ReadReservations t id
+
+createReservation :: Reservation -> ReservationsProgram ()
+createReservation r = liftF $ CreateReservation r ()
+
+readReservation :: UUID -> Reservation
+readReservation rid =
+  let rd = coerce $ ZonedTime
+            (LocalTime (fromGregorian 2019 10 4) (TimeOfDay 18 30 0))
+            (hoursToTimeZone 1)
+  in Reservation rid rd "Ploeh" "ploeh@example.com" 3
+
 modifyReservationFieldLabel =
   let l = length "reservation"
   in map toLower . drop l
@@ -45,15 +68,8 @@ type ReservationAPI =
        Capture "reservationId" UUID :> Get '[JSON] Reservation
   :<|> ReqBody '[JSON] Reservation :> Post '[JSON] ()
 
-reservation :: UUID -> Reservation
-reservation rid =
-  let rd = coerce $ ZonedTime
-            (LocalTime (fromGregorian 2019 10 4) (TimeOfDay 18 30 0))
-            (hoursToTimeZone 1)
-  in Reservation rid rd "Ploeh" "ploeh@example.com" 3
-
-reservationServer :: Server ReservationAPI
-reservationServer = getReservation :<|> postReservation
+reservationServer :: (ReservationsProgram () -> IO ()) -> Server ReservationAPI
+reservationServer interpret = getReservation :<|> postReservation
   where
-    getReservation rid = return $ reservation rid
-    postReservation _ = return ()
+    getReservation rid = return $ readReservation rid
+    postReservation = liftIO . interpret . createReservation

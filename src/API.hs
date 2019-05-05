@@ -3,6 +3,7 @@
 {-# LANGUAGE TypeOperators   #-}
 module API where
 
+import Control.Monad.Trans.Free
 import Data.Aeson.TH
 import Network.Wai.Handler.Warp
 import Servant
@@ -29,8 +30,13 @@ api = Proxy
 
 type API = "users" :> UserAPI :<|> "reservations" :> ReservationAPI
 
+interpretReservations :: ReservationsProgram () -> IO ()
+interpretReservations = iterM go
+  where go (ReadReservations t next) = next []
+        go (CreateReservation _ next) = return ()
+
 server :: Server API
-server = userServer :<|> reservationServer
+server = userServer :<|> reservationServer interpretReservations
 
 userServer :: Server UserAPI
 userServer = return users
