@@ -16,30 +16,22 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.Free
 import Servant
 
-newtype ZonedTimeStructEq =
-  ZonedTimeStructEq ZonedTime
-  deriving (Show, ToJSON, FromJSON)
-
-instance Eq ZonedTimeStructEq where
-  (ZonedTimeStructEq (ZonedTime lt1 tz1)) == (ZonedTimeStructEq (ZonedTime lt2 tz2)) =
-    lt1 == lt2 && tz1 == tz2
-
 data Reservation = Reservation
   { reservationId :: UUID
-  , reservationDate :: ZonedTimeStructEq
+  , reservationDate :: LocalTime
   , reservationName :: String
   , reservationEmail :: String
   , reservationQuantity :: Int
   } deriving (Eq, Show, Generic)
 
 data ReservationsInstruction next =
-    ReadReservations ZonedTimeStructEq ([Reservation] -> next)
+    ReadReservations LocalTime ([Reservation] -> next)
   | CreateReservation Reservation next
   deriving Functor
 
 type ReservationsProgram = Free ReservationsInstruction
 
-readReservations :: ZonedTimeStructEq -> ReservationsProgram [Reservation]
+readReservations :: LocalTime -> ReservationsProgram [Reservation]
 readReservations t = liftF $ ReadReservations t id
 
 createReservation :: Reservation -> ReservationsProgram ()
@@ -47,9 +39,7 @@ createReservation r = liftF $ CreateReservation r ()
 
 readReservation :: UUID -> Reservation
 readReservation rid =
-  let rd = coerce $ ZonedTime
-            (LocalTime (fromGregorian 2019 10 4) (TimeOfDay 18 30 0))
-            (hoursToTimeZone 1)
+  let rd = LocalTime (fromGregorian 2019 10 4) (TimeOfDay 18 30 0)
   in Reservation rid rd "Ploeh" "ploeh@example.com" 3
 
 modifyReservationFieldLabel =
