@@ -3,15 +3,14 @@
 module ReservationAPISpec where
 
 import Control.Monad
-import Data.Coerce
 import Data.UUID
 import Data.Time.Calendar
 import Data.Time.LocalTime
-import Data.Aeson
+import Data.Aeson (encode, decode)
 import Test.Hspec
 import Test.QuickCheck
-import Test.QuickCheck.Instances.Time
-import Test.QuickCheck.Instances.UUID
+import Test.QuickCheck.Instances.Time ()
+import Test.QuickCheck.Instances.UUID ()
 import ReservationAPI
 
 instance Arbitrary Reservation where

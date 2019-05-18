@@ -8,6 +8,7 @@ import Validation
 instance (Arbitrary e, Arbitrary a) => Arbitrary (Validated e a) where
   arbitrary = Validated <$> arbitrary
 
+validationSpec :: SpecWith ()
 validationSpec = do
   describe "Validated" $ do
     it "obeys the applicative identity law" $ property $ \
