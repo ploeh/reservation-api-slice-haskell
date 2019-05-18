@@ -9,10 +9,10 @@ instance (Arbitrary e, Arbitrary a) => Arbitrary (Validated e a) where
   arbitrary = Validated <$> arbitrary
 
 validationSpec :: SpecWith ()
-validationSpec = do
+validationSpec =
   describe "Validated" $ do
     it "obeys the applicative identity law" $ property $ \
-      (v :: Validated String Int) -> do
+      (v :: Validated String Int) ->
       v `shouldBe` pure id <*> v
 
     it "obeys the applicative composition law" $ property $ do

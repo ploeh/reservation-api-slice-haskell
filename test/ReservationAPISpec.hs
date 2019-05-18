@@ -18,7 +18,7 @@ instance Arbitrary Reservation where
     liftM5 Reservation arbitrary arbitrary arbitrary arbitrary arbitrary
 
 reservationAPISpec :: Spec
-reservationAPISpec = do
+reservationAPISpec =
   describe "Reservation JSON" $ do
     it "renders correctly" $ do
       let rid = fromWords 872411231 2362592316 2161598850 3450687078
@@ -33,6 +33,6 @@ reservationAPISpec = do
                        \\"quantity\":3}"
 
     it "round-trips" $ property $ \(r :: Reservation) -> do
-      let json = encode $ r
+      let json = encode r
       let actual = decode json
       actual `shouldBe` Just r
