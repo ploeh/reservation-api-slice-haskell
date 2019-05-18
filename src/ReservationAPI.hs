@@ -6,7 +6,6 @@
 module ReservationAPI where
 
 import Data.Char
-import Data.Coerce
 import Data.UUID
 import Data.Time.Calendar
 import Data.Time.LocalTime
@@ -42,10 +41,12 @@ readReservation rid =
   let rd = LocalTime (fromGregorian 2019 10 4) (TimeOfDay 18 30 0)
   in Reservation rid rd "Ploeh" "ploeh@example.com" 3
 
+modifyReservationFieldLabel :: String -> String
 modifyReservationFieldLabel =
   let l = length "reservation"
   in map toLower . drop l
 
+reservationOptions :: Options
 reservationOptions = defaultOptions { fieldLabelModifier = modifyReservationFieldLabel }
 
 instance ToJSON Reservation where

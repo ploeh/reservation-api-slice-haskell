@@ -32,8 +32,8 @@ type API = "users" :> UserAPI :<|> "reservations" :> ReservationAPI
 
 interpretReservations :: ReservationsProgram () -> IO ()
 interpretReservations = iterM go
-  where go (ReadReservations t next) = next []
-        go (CreateReservation _ next) = return ()
+  where go (ReadReservations _ next) = next []
+        go (CreateReservation _ _) = return ()
 
 server :: Server API
 server = userServer :<|> reservationServer interpretReservations
