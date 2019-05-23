@@ -14,7 +14,7 @@ main = hspec $ do
   reservationAPISpec
 
 spec :: Spec
-spec = with (return app) $
+spec = with (return (app "")) $
     describe "GET /users" $ do
         it "responds with 200" $
             get "/users" `shouldRespondWith` 200

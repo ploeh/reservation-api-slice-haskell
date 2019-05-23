@@ -4,10 +4,12 @@
 module API where
 
 import Control.Monad.Trans.Free
+import Data.Text
 import Data.Aeson.TH
 import Network.Wai.Handler.Warp
 import Servant
 import ReservationAPI
+import qualified ReservationSQL as DB
 
 data User = User
   { userId        :: Int
@@ -19,24 +21,24 @@ $(deriveJSON defaultOptions ''User)
 
 type UserAPI = Get '[JSON] [User]
 
-startApp :: Port -> IO ()
-startApp port = run port app
+startApp :: Port -> String -> IO ()
+startApp port connStr = run port $ app (pack connStr)
 
-app :: Application
-app = serve api server
+app :: Text -> Application
+app connStr = serve api $ server connStr
 
 api :: Proxy API
 api = Proxy
 
 type API = "users" :> UserAPI :<|> "reservations" :> ReservationAPI
 
-interpretReservations :: ReservationsProgram () -> IO ()
-interpretReservations = iterM go
+interpretReservations :: Text -> Free ReservationsInstruction a -> IO a
+interpretReservations connStr = iterM go
   where go (ReadReservations _ next) = next []
-        go (CreateReservation _ _) = return ()
+        go (CreateReservation r next) = do DB.insertReservation connStr r; next
 
-server :: Server API
-server = userServer :<|> reservationServer interpretReservations
+server :: Text -> Server API
+server connStr = userServer :<|> reservationServer (interpretReservations connStr)
 
 userServer :: Server UserAPI
 userServer = return users
