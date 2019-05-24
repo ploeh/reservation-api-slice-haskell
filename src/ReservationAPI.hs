@@ -10,7 +10,6 @@ import Data.Time.Calendar
 import Data.Time.LocalTime
 import Data.Aeson
 import GHC.Generics
-import Control.Monad.IO.Class
 import Control.Monad.Trans.Free
 import Servant
 
@@ -57,9 +56,3 @@ instance FromJSON Reservation where
 type ReservationAPI =
        Capture "reservationId" UUID :> Get '[JSON] Reservation
   :<|> ReqBody '[JSON] Reservation :> Post '[JSON] ()
-
-reservationServer :: (ReservationsProgram () -> IO ()) -> Server ReservationAPI
-reservationServer interpret = getReservation :<|> postReservation
-  where
-    getReservation rid = return $ readReservation rid
-    postReservation = liftIO . interpret . createReservation

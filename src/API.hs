@@ -3,6 +3,7 @@
 module API where
 
 import Control.Monad.Trans.Free
+import Control.Monad.IO.Class
 import Data.Text
 import Network.Wai.Handler.Warp
 import Servant
@@ -25,5 +26,11 @@ interpretReservations connStr = iterM go
   where go (ReadReservations _ _ next) = next []
         go (CreateReservation r next) = do DB.insertReservation connStr r; next
 
+reservationServer :: Text -> Server ReservationAPI
+reservationServer connStr = getReservation :<|> postReservation
+  where
+    getReservation rid = return $ readReservation rid
+    postReservation = liftIO . interpretReservations connStr . createReservation
+
 server :: Text -> Server API
-server connStr = reservationServer (interpretReservations connStr)
+server connStr = reservationServer connStr
