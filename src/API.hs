@@ -22,7 +22,7 @@ type API = "reservations" :> ReservationAPI
 
 interpretReservations :: Text -> Free ReservationsInstruction a -> IO a
 interpretReservations connStr = iterM go
-  where go (ReadReservations _ next) = next []
+  where go (ReadReservations _ _ next) = next []
         go (CreateReservation r next) = do DB.insertReservation connStr r; next
 
 server :: Text -> Server API
