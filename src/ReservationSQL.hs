@@ -26,9 +26,20 @@ fromMixedEndianByteString bs =
         BS.pack [w3,w2,w1,w0, w5,w4, w7,w6, w8,w9, wa,wb,wc,wd,we,wf]
     _ -> Nothing
 
+newtype UniqueIdentifier = UniqueIdentifier UUID deriving (Eq, Show, Read)
+
+instance ToSql UniqueIdentifier where
+  toSql (UniqueIdentifier ui) =
+    toSql $ Binary $ BS.toStrict $ toMixedEndianByteString ui
+
+instance FromValue UniqueIdentifier where
+  fromValue v =
+    fmap (fromMixedEndianByteString . BS.fromStrict . unBinary) (fromValue v)
+    >>= maybe (Left ("Expected UUID, but got: " ++ show v)) (Right . coerce)
+
 insertReservation :: Text -> Reservation -> IO ()
 insertReservation connStr (Reservation rid d n e q) =
-  let rid' = toSql $ Binary $ BS.toStrict $ toMixedEndianByteString rid
+  let rid' = toSql $ UniqueIdentifier rid
       d' = toSql $ Datetime2 d
       n' = toSql $ T.pack n
       e' = toSql $ T.pack e
@@ -37,13 +48,6 @@ insertReservation connStr (Reservation rid d n e q) =
         "INSERT INTO [dbo].[Reservations] ([Guid], [Date], [Name], [Email], [Quantity])\
         \VALUES (" <> rid' <> ", " <> d' <> ", " <> n' <> ", " <> e' <> ", " <> q' <> ")"
   in bracket (connect connStr) close (`exec` sql)
-
-newtype UniqueIdentifier = UniqueIdentifier UUID deriving (Eq, Show, Read)
-
-instance FromValue UniqueIdentifier where
-  fromValue v =
-    fmap (fromMixedEndianByteString . BS.fromStrict . unBinary) (fromValue v)
-    >>= maybe (Left ("Expected UUID, but got: " ++ show v)) (Right . coerce)
 
 newtype DbReservation =
   DbReservation { unDbReservation :: Reservation } deriving (Eq, Show, Read)
@@ -56,7 +60,7 @@ instance FromRow DbReservation where
 
 readReservation :: Text -> UUID -> IO Reservation
 readReservation connStr rid =
-  let rid' = toSql $ Binary $ BS.toStrict $ toMixedEndianByteString rid
+  let rid' = toSql $ UniqueIdentifier rid
       sql =
         "SELECT [Guid], [Date], [Name], [Email], [Quantity]\
         \FROM [dbo].[Reservations]\
