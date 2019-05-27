@@ -6,7 +6,6 @@ module ReservationAPI where
 
 import Data.Char
 import Data.UUID
-import Data.Time.Calendar
 import Data.Time.LocalTime
 import Data.Aeson
 import GHC.Generics
@@ -19,7 +18,7 @@ data Reservation = Reservation
   , reservationName :: String
   , reservationEmail :: String
   , reservationQuantity :: Int
-  } deriving (Eq, Show, Generic)
+  } deriving (Eq, Show, Read, Generic)
 
 data ReservationsInstruction next =
     ReadReservations LocalTime LocalTime ([Reservation] -> next)
@@ -33,11 +32,6 @@ readReservations lo hi = liftF $ ReadReservations lo hi id
 
 createReservation :: Reservation -> ReservationsProgram ()
 createReservation r = liftF $ CreateReservation r ()
-
-readReservation :: UUID -> Reservation
-readReservation rid =
-  let rd = LocalTime (fromGregorian 2019 10 4) (TimeOfDay 18 30 0)
-  in Reservation rid rd "Ploeh" "ploeh@example.com" 3
 
 modifyReservationFieldLabel :: String -> String
 modifyReservationFieldLabel =

@@ -29,8 +29,8 @@ interpretReservations connStr = iterM go
 reservationServer :: Text -> Server ReservationAPI
 reservationServer connStr = getReservation :<|> postReservation
   where
-    getReservation rid = return $ readReservation rid
+    getReservation = liftIO . DB.readReservation connStr
     postReservation = liftIO . interpretReservations connStr . createReservation
 
 server :: Text -> Server API
-server connStr = reservationServer connStr
+server = reservationServer
