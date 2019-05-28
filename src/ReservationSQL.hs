@@ -47,7 +47,7 @@ insertReservation connStr (Reservation rid d n e q) =
       sql =
         "INSERT INTO [dbo].[Reservations] ([Guid], [Date], [Name], [Email], [Quantity])\
         \VALUES (" <> rid' <> ", " <> d' <> ", " <> n' <> ", " <> e' <> ", " <> q' <> ")"
-  in bracket (connect connStr) close (`exec` sql)
+  in withConnection connStr (`exec` sql)
 
 newtype DbReservation =
   DbReservation { unDbReservation :: Reservation } deriving (Eq, Show, Read)
@@ -65,7 +65,7 @@ readReservation connStr rid =
         "SELECT [Guid], [Date], [Name], [Email], [Quantity]\
         \FROM [dbo].[Reservations]\
         \WHERE [Guid] = " <> rid'
-  in bracket
-      (connect connStr)
-      close
-      (fmap (unDbReservation . head) . (`query` sql))
+  in withConnection connStr $ fmap (unDbReservation . head) . (`query` sql)
+
+withConnection :: Text -> (Connection -> IO a) -> IO a
+withConnection connStr = bracket (connect connStr) close
