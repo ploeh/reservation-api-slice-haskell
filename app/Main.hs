@@ -12,8 +12,8 @@ main = do
     [connStr, port] ->
       case readMaybe port of
         Just p -> runApp connStr p
-        _ -> putStrLn "Boo!"
-    _ -> putStrLn "Bah!"
+        _ -> putStrLn "Error: Couldn't parse the port number."
+    _ -> putStrLn "Usage: RestaurantReservation <connection string> [port]"
 
 runApp :: String -> Int -> IO ()
 runApp connStr port = do
