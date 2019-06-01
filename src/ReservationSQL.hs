@@ -2,6 +2,7 @@
 module ReservationSQL where
 
 import Control.Exception.Base (bracket)
+import Data.Maybe
 import Data.Coerce
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as BS
@@ -58,14 +59,16 @@ instance FromRow DbReservation where
           coerce $ Reservation rid d (T.unpack n) (T.unpack e) q
     in rowToReservation <$> fromRow r
 
-readReservation :: Text -> UUID -> IO Reservation
+readReservation :: Text -> UUID -> IO (Maybe Reservation)
 readReservation connStr rid =
   let rid' = toSql $ UniqueIdentifier rid
       sql =
         "SELECT [Guid], [Date], [Name], [Email], [Quantity]\
         \FROM [dbo].[Reservations]\
         \WHERE [Guid] = " <> rid'
-  in withConnection connStr $ fmap (unDbReservation . head) . (`query` sql)
+  in withConnection connStr $ \conn -> do
+      rs <- query conn sql
+      return $ unDbReservation <$> listToMaybe rs
 
 withConnection :: Text -> (Connection -> IO a) -> IO a
 withConnection connStr = bracket (connect connStr) close

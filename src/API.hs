@@ -5,6 +5,7 @@ module API where
 import Control.Monad.Trans.Free
 import Control.Monad.IO.Class
 import Data.Text
+import Data.UUID (UUID)
 import Network.Wai.Handler.Warp
 import Servant
 import ReservationAPI
@@ -30,7 +31,12 @@ interpretReservations connStr = iterM go
 reservationServer :: Text -> Server ReservationAPI
 reservationServer connStr = getReservation :<|> postReservation
   where
-    getReservation = liftIO . interpretReservations connStr . readReservation
+    getReservation :: UUID -> Handler Reservation
+    getReservation rid = do
+      mr <- liftIO $ interpretReservations connStr $ readReservation rid
+      case mr of
+        Just r -> return r
+        Nothing -> throwError err404
     postReservation = liftIO . interpretReservations connStr . createReservation
 
 server :: Text -> Server API
