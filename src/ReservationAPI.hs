@@ -21,11 +21,15 @@ data Reservation = Reservation
   } deriving (Eq, Show, Read, Generic)
 
 data ReservationsInstruction next =
-    ReadReservations LocalTime LocalTime ([Reservation] -> next)
+    ReadReservation UUID (Reservation -> next)
+  | ReadReservations LocalTime LocalTime ([Reservation] -> next)
   | CreateReservation Reservation next
   deriving Functor
 
 type ReservationsProgram = Free ReservationsInstruction
+
+readReservation :: UUID -> ReservationsProgram Reservation
+readReservation rid = liftF $ ReadReservation rid id
 
 readReservations :: LocalTime -> LocalTime -> ReservationsProgram [Reservation]
 readReservations lo hi = liftF $ ReadReservations lo hi id
