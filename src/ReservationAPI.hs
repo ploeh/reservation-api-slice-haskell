@@ -9,7 +9,7 @@ import Data.UUID
 import Data.Time.LocalTime
 import Data.Aeson
 import GHC.Generics
-import Control.Monad.Trans.Free
+import Control.Monad.Free
 import Servant
 
 data Reservation = Reservation

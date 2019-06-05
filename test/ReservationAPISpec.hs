@@ -3,22 +3,34 @@
 module ReservationAPISpec where
 
 import Control.Monad
+import Control.Monad.Trans.Free
+import Control.Monad.IO.Class
 import Data.UUID
+import Data.IORef
 import Data.Time.Calendar
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as LBS
+import qualified Data.Map.Strict as Map
+import Data.Map.Strict (Map)
 import Data.Time.LocalTime
 import Data.Aeson (encode, decode)
+import Network.HTTP.Types (methodPost)
+import Network.Wai.Test (SResponse)
 import Test.Hspec
+import Test.Hspec.Wai
 import Test.QuickCheck
 import Test.QuickCheck.Instances.Time ()
 import Test.QuickCheck.Instances.UUID ()
 import ReservationAPI
+import Servant
+import API
 
 instance Arbitrary Reservation where
   arbitrary =
     liftM5 Reservation arbitrary arbitrary arbitrary arbitrary arbitrary
 
 reservationAPISpec :: Spec
-reservationAPISpec =
+reservationAPISpec = describe "Reservation API" $ do
   describe "Reservation JSON" $ do
     it "renders correctly" $ do
       let rid = fromWords 872411231 2362592316 2161598850 3450687078
@@ -27,12 +39,49 @@ reservationAPISpec =
       let json = encode $ Reservation rid rd "Jo" "j@example.com" 3
 
       json `shouldBe` "{\"id\":\"33fff05f-8cd2-4c3c-80d7-6182cdad4e66\",\
-                       \\"date\":\"2019-04-12T19:00:00\",\
-                       \\"name\":\"Jo\",\
-                       \\"email\":\"j@example.com\",\
-                       \\"quantity\":3}"
+                      \\"date\":\"2019-04-12T19:00:00\",\
+                      \\"name\":\"Jo\",\
+                      \\"email\":\"j@example.com\",\
+                      \\"quantity\":3}"
 
     it "round-trips" $ property $ \(r :: Reservation) -> do
       let json = encode r
       let actual = decode json
       actual `shouldBe` Just r
+
+  with app $ describe "GET /reservations/{rid}" $ do
+    it "responds with 404 when no reservation exists" $
+      get "/reservations/5826df86-f3c3-4e20-8332-f758565c731f"
+        `shouldRespondWith` 404
+
+    it "responds with 200 after reservation is added" $ do
+      let rid = fromWords 767167160 1533168121 2860194571 567762878
+      let rd = LocalTime (fromGregorian 2019 6 1) (TimeOfDay 22 56 44)
+      let json = encode $ Reservation rid rd "Bo" "b@example.net" 1
+      _ <- postJSON "/reservations" json
+
+      let actual = get ("/reservations/" <> toASCIIBytes rid)
+
+      actual `shouldRespondWith` 200
+
+postJSON :: BS.ByteString -> LBS.ByteString -> WaiSession SResponse
+postJSON url = request methodPost url [("Content-Type", "application/json")]
+
+type DB = Map UUID Reservation
+
+createInFake :: IORef DB -> Reservation -> IO ()
+createInFake ref r = modifyIORef' ref (Map.insert (reservationId r) r)
+
+readFromFake :: IORef DB -> UUID -> IO (Maybe Reservation)
+readFromFake ref rid = Map.lookup rid <$> readIORef ref
+
+runInFakeDB :: MonadIO m => IORef DB -> FreeT ReservationsInstruction m a -> m a
+runInFakeDB ref = iterT go
+  where go (ReadReservation rid next) = liftIO (readFromFake ref rid) >>= next
+        go (ReadReservations _ _ next) = next []
+        go (CreateReservation r next) = liftIO (createInFake ref r) >> next
+
+app :: IO Application
+app = do
+  ref <- newIORef Map.empty
+  return $ serve api $ hoistServer api (Handler . runInFakeDB ref) server

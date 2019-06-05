@@ -1,43 +1,40 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE FlexibleContexts #-}
 module API where
 
+import Control.Monad.Except
+import Control.Monad.Free (toFreeT)
 import Control.Monad.Trans.Free
-import Control.Monad.IO.Class
 import Data.Text
-import Data.UUID (UUID)
-import Network.Wai.Handler.Warp
 import Servant
 import ReservationAPI
 import qualified ReservationSQL as DB
-
-startApp :: Port -> String -> IO ()
-startApp port connStr = run port $ app (pack connStr)
-
-app :: Text -> Application
-app connStr = serve api $ server connStr
 
 api :: Proxy API
 api = Proxy
 
 type API = "reservations" :> ReservationAPI
 
-interpretReservations :: Text -> Free ReservationsInstruction a -> IO a
-interpretReservations connStr = iterM go
-  where go (ReadReservation rid next) = DB.readReservation connStr rid >>= next
+runInSQLServer :: MonadIO m => Text -> FreeT ReservationsInstruction m a -> m a
+runInSQLServer connStr = iterT go
+  where go (ReadReservation rid next) =
+          liftIO (DB.readReservation connStr rid) >>= next
         go (ReadReservations _ _ next) = next []
-        go (CreateReservation r next) = do DB.insertReservation connStr r; next
+        go (CreateReservation r next) =
+          liftIO (DB.insertReservation connStr r) >> next
 
-reservationServer :: Text -> Server ReservationAPI
-reservationServer connStr = getReservation :<|> postReservation
+reservationServer :: Monad m =>
+                     ServerT ReservationAPI (FreeT ReservationsInstruction (ExceptT ServantErr m))
+reservationServer = getReservation :<|> postReservation
   where
-    getReservation :: UUID -> Handler Reservation
     getReservation rid = do
-      mr <- liftIO $ interpretReservations connStr $ readReservation rid
+      mr <- toFreeT $ readReservation rid
       case mr of
         Just r -> return r
         Nothing -> throwError err404
-    postReservation = liftIO . interpretReservations connStr . createReservation
+    postReservation = toFreeT . createReservation
 
-server :: Text -> Server API
+server :: Monad m =>
+          ServerT API (FreeT ReservationsInstruction (ExceptT ServantErr m))
 server = reservationServer

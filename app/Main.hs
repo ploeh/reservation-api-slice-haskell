@@ -1,7 +1,10 @@
 module Main where
 
 import System.Environment
+import Data.Text (pack)
 import Text.Read
+import Network.Wai.Handler.Warp
+import Servant
 import API
 
 main :: IO ()
@@ -19,4 +22,5 @@ runApp :: String -> Int -> IO ()
 runApp connStr port = do
   putStrLn $ "Starting server on port " ++ show port ++ "."
   putStrLn "Press Ctrl + C to stop the server."
-  startApp port connStr
+  let hoistSQL = hoistServer api (Handler . runInSQLServer (pack connStr))
+  run port $ serve api $ hoistSQL server
