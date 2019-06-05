@@ -18,6 +18,7 @@ import Network.HTTP.Types (methodPost)
 import Network.Wai.Test (SResponse)
 import Test.Hspec
 import Test.Hspec.Wai
+import qualified Test.Hspec.Wai.QuickCheck as WQC
 import Test.QuickCheck
 import Test.QuickCheck.Instances.Time ()
 import Test.QuickCheck.Instances.UUID ()
@@ -50,18 +51,12 @@ reservationAPISpec = describe "Reservation API" $ do
       actual `shouldBe` Just r
 
   with app $ describe "GET /reservations/{rid}" $ do
-    it "responds with 404 when no reservation exists" $
-      get "/reservations/5826df86-f3c3-4e20-8332-f758565c731f"
-        `shouldRespondWith` 404
+    it "responds with 404 when no reservation exists" $ WQC.property $ \rid ->
+      get ("/reservations/" <> toASCIIBytes rid) `shouldRespondWith` 404
 
-    it "responds with 200 after reservation is added" $ do
-      let rid = fromWords 767167160 1533168121 2860194571 567762878
-      let rd = LocalTime (fromGregorian 2019 6 1) (TimeOfDay 22 56 44)
-      let json = encode $ Reservation rid rd "Bo" "b@example.net" 1
-      _ <- postJSON "/reservations" json
-
-      let actual = get ("/reservations/" <> toASCIIBytes rid)
-
+    it "responds with 200 after reservation is added" $ WQC.property $ \r -> do
+      _ <- postJSON "/reservations" $ encode r
+      let actual = get $ "/reservations/" <> toASCIIBytes (reservationId r)
       actual `shouldRespondWith` 200
 
 postJSON :: BS.ByteString -> LBS.ByteString -> WaiSession SResponse
