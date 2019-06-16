@@ -15,8 +15,7 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Validation
-                     , API
+  exposed-modules:     API
                      , ReservationAPI
                      , ReservationSQL
   build-depends:       base >= 4.7 && < 5
@@ -50,8 +49,7 @@ test-suite RestaurantReservation.Test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Spec.hs
-  other-modules:       ValidationSpec
-                     , ReservationAPISpec
+  other-modules:       ReservationAPISpec
   build-depends:       base
                      , bytestring
                      , containers
