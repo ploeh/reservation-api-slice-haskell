@@ -30,6 +30,17 @@ instance Arbitrary Reservation where
   arbitrary =
     liftM5 Reservation arbitrary arbitrary arbitrary arbitrary arbitrary
 
+newtype ValidReservation = ValidReservation Reservation deriving (Eq, Show)
+
+instance Arbitrary ValidReservation where
+  arbitrary = do
+    rid <- arbitrary
+    d <- arbitrary
+    n <- arbitrary
+    e <- arbitrary
+    (Positive q) <- arbitrary
+    return $ ValidReservation $ Reservation rid d n e q
+
 reservationAPISpec :: Spec
 reservationAPISpec = describe "Reservation API" $ do
   describe "Reservation JSON" $ do
@@ -50,14 +61,26 @@ reservationAPISpec = describe "Reservation API" $ do
       let actual = decode json
       actual `shouldBe` Just r
 
-  with app $ describe "GET /reservations/{rid}" $ do
+  with app $ describe "/reservations/{rid}" $ do
     it "responds with 404 when no reservation exists" $ WQC.property $ \rid ->
       get ("/reservations/" <> toASCIIBytes rid) `shouldRespondWith` 404
 
-    it "responds with 200 after reservation is added" $ WQC.property $ \r -> do
+    it "responds with 200 after reservation is added" $ WQC.property $ \
+      (ValidReservation r) -> do
       _ <- postJSON "/reservations" $ encode r
       let actual = get $ "/reservations/" <> toASCIIBytes (reservationId r)
       actual `shouldRespondWith` 200
+
+    it "succeeds when valid reservation is POSTed" $ WQC.property $ \
+      (ValidReservation r) -> do
+      let actual = postJSON "/reservations" $ encode r
+      actual `shouldRespondWith` 200
+
+    it "fails when reservation is POSTed with invalid quantity" $ WQC.property $ \
+      (ValidReservation r) (NonNegative q) -> do
+      let invalid = r { reservationQuantity = negate q }
+      let actual = postJSON "/reservations" $ encode invalid
+      actual `shouldRespondWith` 400
 
 postJSON :: BS.ByteString -> LBS.ByteString -> WaiSession SResponse
 postJSON url = request methodPost url [("Content-Type", "application/json")]

@@ -33,7 +33,11 @@ reservationServer = getReservation :<|> postReservation
       case mr of
         Just r -> return r
         Nothing -> throwError err404
-    postReservation = toFreeT . createReservation
+    postReservation r = do
+      e <- toFreeT $ tryAccept r
+      case e of
+        Right () -> return ()
+        Left err -> throwError $ err400 { errBody = err }
 
 server :: Monad m =>
           ServerT API (FreeT ReservationsInstruction (ExceptT ServantErr m))
