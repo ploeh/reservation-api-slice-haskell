@@ -61,7 +61,7 @@ reservationAPISpec = describe "Reservation API" $ do
       let actual = decode json
       actual `shouldBe` Just r
 
-  with app $ describe "/reservations/{rid}" $ do
+  with app $ describe "/reservations/" $ do
     it "responds with 404 when no reservation exists" $ WQC.property $ \rid ->
       get ("/reservations/" <> toASCIIBytes rid) `shouldRespondWith` 404
 
