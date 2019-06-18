@@ -22,5 +22,6 @@ runApp :: String -> Int -> IO ()
 runApp connStr port = do
   putStrLn $ "Starting server on port " ++ show port ++ "."
   putStrLn "Press Ctrl + C to stop the server."
-  let hoistSQL = hoistServer api (Handler . runInSQLServer (pack connStr))
+  let hoistSQL =
+        hoistServer api (Handler . runInSQLServerAndOnSystemClock (pack connStr))
   run port $ serve api $ hoistSQL server

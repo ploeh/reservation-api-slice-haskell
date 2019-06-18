@@ -9,6 +9,7 @@ import Data.Char
 import Data.ByteString.Lazy (ByteString)
 import Data.UUID
 import Data.Time.LocalTime
+import Data.Functor.Sum
 import Data.Aeson
 import GHC.Generics
 import Control.Monad.Free
@@ -28,27 +29,38 @@ data ReservationsInstruction next =
   | CreateReservation Reservation next
   deriving Functor
 
-type ReservationsProgram = Free ReservationsInstruction
+newtype ClockInstruction next = CurrentTime (LocalTime -> next) deriving Functor
+
+type ReservationsProgram = Free (Sum ReservationsInstruction ClockInstruction)
 
 readReservation :: UUID -> ReservationsProgram (Maybe Reservation)
-readReservation rid = liftF $ ReadReservation rid id
+readReservation rid = liftF $ InL $ ReadReservation rid id
 
 readReservations :: LocalTime -> LocalTime -> ReservationsProgram [Reservation]
-readReservations lo hi = liftF $ ReadReservations lo hi id
+readReservations lo hi = liftF $ InL $ ReadReservations lo hi id
 
 createReservation :: Reservation -> ReservationsProgram ()
-createReservation r = liftF $ CreateReservation r ()
+createReservation r = liftF $ InL $ CreateReservation r ()
+
+currentTime :: ReservationsProgram LocalTime
+currentTime = liftF $ InR $ CurrentTime id
 
 validatePositive :: (Ord b, Num b) => a -> b -> Either a b
 validatePositive e x = if x > 0 then Right x else Left e
 
-validateReservation :: Reservation -> Either ByteString Reservation
-validateReservation (Reservation rid d n e q) = do
+validateLessThan :: Ord a => e -> a -> a -> Either e a
+validateLessThan e x y = if x < y then Right y else Left e
+
+validateReservation :: LocalTime -> Reservation -> Either ByteString Reservation
+validateReservation now (Reservation rid d n e q) = do
+  vd <- validateLessThan "Reservation time must be in the future" now d
   vq <- validatePositive "Quantity must be a positive integer" q
-  return $ Reservation rid d n e vq
+  return $ Reservation rid vd n e vq
 
 tryAccept :: Reservation -> ReservationsProgram (Either ByteString ())
-tryAccept = traverse createReservation . validateReservation
+tryAccept r = do
+  now <- currentTime
+  traverse createReservation $ validateReservation now r
 
 modifyReservationFieldLabel :: String -> String
 modifyReservationFieldLabel =

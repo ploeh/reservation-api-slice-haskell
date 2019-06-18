@@ -5,6 +5,7 @@ module ReservationAPISpec where
 import Control.Monad
 import Control.Monad.Trans.Free
 import Control.Monad.IO.Class
+import Data.Functor.Sum
 import Data.UUID
 import Data.IORef
 import Data.Time.Calendar
@@ -13,6 +14,7 @@ import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
 import Data.Time.LocalTime
+import Data.Time.Clock
 import Data.Aeson (encode, decode)
 import Network.HTTP.Types (methodPost)
 import Network.Wai.Test (SResponse)
@@ -35,7 +37,7 @@ newtype ValidReservation = ValidReservation Reservation deriving (Eq, Show)
 instance Arbitrary ValidReservation where
   arbitrary = do
     rid <- arbitrary
-    d <- arbitrary
+    d <- (\dt -> addLocalTime (getPositive dt) now2019) <$> arbitrary
     n <- arbitrary
     e <- arbitrary
     (Positive q) <- arbitrary
@@ -82,6 +84,17 @@ reservationAPISpec = describe "Reservation API" $ do
       let actual = postJSON "/reservations" $ encode invalid
       actual `shouldRespondWith` 400
 
+    it "fails when past reservation is POSTed" $ WQC.property $ \
+      (ValidReservation r) (Positive diffTime) -> do
+      let invalid =
+            r { reservationDate = addLocalTime (negate diffTime) now2019 }
+      let actual = postJSON "/reservations" $ encode invalid
+      actual `shouldRespondWith` 400
+
+-- Not in time 1.8.0.2
+addLocalTime :: NominalDiffTime -> LocalTime -> LocalTime
+addLocalTime x = utcToLocalTime utc . addUTCTime x . localTimeToUTC utc
+
 postJSON :: BS.ByteString -> LBS.ByteString -> WaiSession SResponse
 postJSON url = request methodPost url [("Content-Type", "application/json")]
 
@@ -93,13 +106,31 @@ createInFake ref r = modifyIORef' ref (Map.insert (reservationId r) r)
 readFromFake :: IORef DB -> UUID -> IO (Maybe Reservation)
 readFromFake ref rid = Map.lookup rid <$> readIORef ref
 
-runInFakeDB :: MonadIO m => IORef DB -> FreeT ReservationsInstruction m a -> m a
-runInFakeDB ref = iterT go
-  where go (ReadReservation rid next) = liftIO (readFromFake ref rid) >>= next
-        go (ReadReservations _ _ next) = next []
-        go (CreateReservation r next) = liftIO (createInFake ref r) >> next
+runInFakeDB :: MonadIO m => IORef DB -> ReservationsInstruction (m a) -> m a
+runInFakeDB ref (ReadReservation rid next) =
+  liftIO (readFromFake ref rid) >>= next
+runInFakeDB   _ (ReadReservations _ _ next) = next []
+runInFakeDB ref (CreateReservation r next) =
+  liftIO (createInFake ref r) >> next
+
+-- This date has nothing to do with when this code was written; it's the
+-- approximate date that Blade Runner takes place.
+now2019 :: LocalTime
+now2019 = LocalTime (fromGregorian 2019 11 8) (TimeOfDay 20 49 0)
+
+runIn2019 :: Monad m => ClockInstruction (m a) -> m a
+runIn2019 (CurrentTime next) = next now2019
+
+runInFakeDBAndIn2019 :: MonadIO m
+                     => IORef DB
+                     -> FreeT (Sum ReservationsInstruction ClockInstruction) m a
+                     -> m a
+runInFakeDBAndIn2019 ref = iterT go
+  where go (InL rins) = runInFakeDB ref rins
+        go (InR cins) = runIn2019 cins
 
 app :: IO Application
 app = do
   ref <- newIORef Map.empty
-  return $ serve api $ hoistServer api (Handler . runInFakeDB ref) server
+  return $
+    serve api $ hoistServer api (Handler . runInFakeDBAndIn2019 ref) server
