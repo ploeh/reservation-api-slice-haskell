@@ -4,5 +4,5 @@ import Test.Hspec
 import ReservationAPISpec
 
 main :: IO ()
-main = hspec $ do
+main = hspec
   reservationAPISpec
