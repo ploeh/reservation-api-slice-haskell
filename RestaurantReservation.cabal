@@ -1,76 +1,105 @@
-name:                RestaurantReservation
-version:             0.1.0.0
--- synopsis:
--- description:
-homepage:            https://github.com/githubuser/RestaurantReservation#readme
-license:             BSD3
-license-file:        LICENSE
-author:              Author name here
-maintainer:          example@example.com
-copyright:           2019 Mark Seemann
-category:            Web
-build-type:          Simple
-extra-source-files:  README.md
-cabal-version:       >=1.10
+cabal-version: 1.12
 
-library
-  hs-source-dirs:      src
-  exposed-modules:     API
-                     , ReservationAPI
-                     , ReservationSQL
-  build-depends:       base >= 4.7 && < 5
-                     , text
-                     , bytestring
-                     , uuid
-                     , time
-                     , mtl
-                     , free
-                     , aeson
-                     , servant-server
-                     , wai
-                     , warp
-                     , odbc
-  ghc-options:         -Wall
-  default-language:    Haskell2010
+-- This file has been generated from package.yaml by hpack version 0.31.1.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 9254989477dd968ecf84811509362aa49dc9899d985b15eb503c48b4b79edc97
 
-executable RestaurantReservation
-  hs-source-dirs:      app
-  main-is:             Main.hs
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
-  build-depends:       base
-                     , text
-                     , warp
-                     , servant-server
-                     , RestaurantReservation
-  ghc-options:         -Wall
-  default-language:    Haskell2010
-
-test-suite RestaurantReservation.Test
-  type:                exitcode-stdio-1.0
-  hs-source-dirs:      test
-  main-is:             Spec.hs
-  other-modules:       ReservationAPISpec
-  build-depends:       base
-                     , bytestring
-                     , containers
-                     , free
-                     , servant-server
-                     , uuid
-                     , time
-                     , RestaurantReservation
-                     , http-types
-                     , wai-extra
-                     , hspec
-                     , hspec-wai
-                     , hspec-wai-json
-                     , aeson
-                     , QuickCheck
-                     , quickcheck-instances
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
-                       -Wall
-                       -fno-warn-orphans
-  default-language:    Haskell2010
+name:           RestaurantReservation
+version:        0.1.0.0
+description:    Please see the README on GitHub at <ploeh/RestaurantReservation>
+homepage:       https://github.com/ploeh/RestaurantReservation#readme
+bug-reports:    https://github.com/ploeh/RestaurantReservation/issues
+author:         Mark Seemann
+maintainer:     example@example.com
+copyright:      2019 Mark Seemann
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
 
 source-repository head
-  type:     git
-  location: https://github.com/githubuser/RestaurantReservation
+  type: git
+  location: https://github.com/ploeh/RestaurantReservation
+
+library
+  exposed-modules:
+      API
+      ReservationAPI
+      ReservationSQL
+  other-modules:
+      Paths_RestaurantReservation
+  hs-source-dirs:
+      src
+  ghc-options: -Wall
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , bytestring
+    , free
+    , mtl
+    , odbc
+    , servant-server
+    , text
+    , time
+    , uuid
+    , wai
+    , warp
+  default-language: Haskell2010
+
+executable RestaurantReservation
+  main-is: Main.hs
+  other-modules:
+      Paths_RestaurantReservation
+  hs-source-dirs:
+      app
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall
+  build-depends:
+      RestaurantReservation
+    , aeson
+    , base >=4.7 && <5
+    , bytestring
+    , free
+    , mtl
+    , odbc
+    , servant-server
+    , text
+    , time
+    , uuid
+    , wai
+    , warp
+  default-language: Haskell2010
+
+test-suite RestaurantReservation-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      ReservationAPISpec
+      Paths_RestaurantReservation
+  hs-source-dirs:
+      test
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall
+  build-depends:
+      QuickCheck
+    , RestaurantReservation
+    , aeson
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , free
+    , hspec
+    , hspec-wai
+    , hspec-wai-json
+    , http-types
+    , mtl
+    , odbc
+    , quickcheck-instances
+    , servant-server
+    , text
+    , time
+    , uuid
+    , wai
+    , wai-extra
+    , warp
+  default-language: Haskell2010

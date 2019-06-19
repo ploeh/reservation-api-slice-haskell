@@ -1,0 +1,70 @@
+name:                RestaurantReservation
+version:             0.1.0.0
+github:              "ploeh/RestaurantReservation"
+license:             
+author:              "Mark Seemann"
+maintainer:          "example@example.com"
+copyright:           "2019 Mark Seemann"
+
+extra-source-files:
+- README.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <ploeh/RestaurantReservation>
+
+dependencies:
+- base >= 4.7 && < 5
+- text
+- bytestring
+- uuid
+- time
+- mtl
+- free
+- aeson
+- servant-server
+- wai
+- warp
+- odbc
+
+library:
+  source-dirs: src
+  ghc-options:
+  - -Wall
+
+executables:
+  RestaurantReservation:
+    main:               Main.hs
+    source-dirs:        app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    - -Wall
+    dependencies:
+    - RestaurantReservation
+
+tests:
+  RestaurantReservation-test:
+    main:               Spec.hs
+    source-dirs:        test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    - -Wall
+    dependencies:
+    - RestaurantReservation
+    - containers
+    - http-types
+    - wai-extra
+    - hspec
+    - hspec-wai
+    - hspec-wai-json
+    - QuickCheck
+    - quickcheck-instances
