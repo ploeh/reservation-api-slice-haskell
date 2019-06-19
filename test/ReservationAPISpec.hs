@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 module ReservationAPISpec where
 
 import Control.Monad
@@ -28,8 +27,11 @@ import ReservationAPI
 import Servant
 import API
 
-instance Arbitrary Reservation where
+newtype AnyReservation = AnyReservation Reservation deriving (Eq, Show)
+
+instance Arbitrary AnyReservation where
   arbitrary =
+    AnyReservation <$>
     liftM5 Reservation arbitrary arbitrary arbitrary arbitrary arbitrary
 
 newtype ValidReservation = ValidReservation Reservation deriving (Eq, Show)
@@ -58,7 +60,7 @@ reservationAPISpec = describe "Reservation API" $ do
                       \\"email\":\"j@example.com\",\
                       \\"quantity\":3}"
 
-    it "round-trips" $ property $ \(r :: Reservation) -> do
+    it "round-trips" $ property $ \(AnyReservation r) -> do
       let json = encode r
       let actual = decode json
       actual `shouldBe` Just r
