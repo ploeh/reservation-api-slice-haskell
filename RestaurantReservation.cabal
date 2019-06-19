@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 9254989477dd968ecf84811509362aa49dc9899d985b15eb503c48b4b79edc97
+-- hash: 426c64e96b8cccdb9a285f5f0540a807bf1a072b8cb0001d8fc5b29bdeed7786
 
 name:           RestaurantReservation
 version:        0.1.0.0
@@ -76,6 +76,7 @@ test-suite RestaurantReservation-test
   main-is: Spec.hs
   other-modules:
       ReservationAPISpec
+      ValidationSpec
       Paths_RestaurantReservation
   hs-source-dirs:
       test

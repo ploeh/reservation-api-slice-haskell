@@ -1,8 +1,10 @@
 module Main (main) where
 
 import Test.Hspec
+import ValidationSpec
 import ReservationAPISpec
 
 main :: IO ()
-main = hspec
+main = hspec $ do
+  validationSpec
   reservationAPISpec
