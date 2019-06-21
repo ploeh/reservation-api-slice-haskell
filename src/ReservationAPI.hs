@@ -51,13 +51,23 @@ validatePositive e x = if x > 0 then Right x else Left e
 validateLessThan :: Ord a => e -> a -> a -> Either e a
 validateLessThan e x y = if x < y then Right y else Left e
 
-validateReservation :: LocalTime -> Reservation -> Either ByteString Reservation
+data APIError a =
+    ValidationError a
+  | ExecutionError a
+  deriving (Eq, Show, Read, Functor)
+
+validateReservation :: LocalTime
+                    -> Reservation
+                    -> Either (APIError ByteString) Reservation
 validateReservation now (Reservation rid d n e q) = do
-  vd <- validateLessThan "Reservation time must be in the future" now d
-  vq <- validatePositive "Quantity must be a positive integer" q
+  vd <- validateLessThan
+          (ValidationError "Reservation time must be in the future") now d
+  vq <- validatePositive
+          (ValidationError "Quantity must be a positive integer") q
   return $ Reservation rid vd n e vq
 
-tryAccept :: Reservation -> ReservationsProgram (Either ByteString ())
+tryAccept :: Reservation
+          -> ReservationsProgram (Either (APIError ByteString) ())
 tryAccept r = do
   now <- currentTime
   traverse createReservation $ validateReservation now r

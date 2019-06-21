@@ -51,7 +51,8 @@ reservationServer = getReservation :<|> postReservation
       e <- toFreeT $ tryAccept r
       case e of
         Right () -> return ()
-        Left err -> throwError $ err400 { errBody = err }
+        Left (ValidationError err) -> throwError $ err400 { errBody = err }
+        Left  (ExecutionError err) -> throwError $ err400 { errBody = err }
 
 server :: ServerT ReservationAPI (ReservationsProgramT Handler)
 server = reservationServer
