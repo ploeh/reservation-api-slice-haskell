@@ -51,14 +51,20 @@ reservationAPISpec :: Spec
 reservationAPISpec = describe "Reservations" $ do
   describe "Accept" $ do
     it "rejects any reservation when restaurant has no tables" $ property $ \
-      (fmap getAnyReservation -> rs) (AnyReservation r) -> do
-      let actual = canAccept [] rs r
+      sd (fmap getAnyReservation -> rs) (AnyReservation r) -> do
+      let actual = canAccept sd [] rs r
       actual `shouldBe` False
 
     it "accepts reservation when table is available" $ property $ \
-      (ValidReservation r) -> do
-      let actual = canAccept [Table $ reservationQuantity r] [] r
+      sd (ValidReservation r) -> do
+      let actual = canAccept sd [Table $ reservationQuantity r] [] r
       actual `shouldBe` True
+
+    it "rejects reservation when table is already taken" $ property $ \
+      sd (ValidReservation r) rid -> do
+      let reservations = [r { reservationId = rid }]
+      let actual = canAccept sd [Table $ reservationQuantity r] reservations r
+      actual `shouldBe` False
 
   describe "Reservation JSON" $ do
     it "renders correctly" $ do
@@ -153,4 +159,4 @@ runInFakeDBAndIn2019 ref = iterT go
 app :: IO Application
 app = do
   ref <- newIORef Map.empty
-  return $ serve api $ hoistServer api (runInFakeDBAndIn2019 ref) $ server []
+  return $ serve api $ hoistServer api (runInFakeDBAndIn2019 ref) $ server 150 []

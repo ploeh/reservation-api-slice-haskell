@@ -8,6 +8,7 @@ module ReservationAPI where
 import Data.Char
 import Data.ByteString.Lazy (ByteString)
 import Data.UUID hiding (null)
+import Data.Time.Clock
 import Data.Time.LocalTime
 import Data.Functor.Sum
 import Data.Aeson
@@ -72,15 +73,21 @@ validateReservation now (Reservation rid d n e q) = do
 
 data Table = Table { tableSeats :: Int } deriving (Eq, Show, Read)
 
-canAccept :: [Table] -> [Reservation] -> Reservation -> Bool
-canAccept tables _ _ = if null tables then False else True
+canAccept :: NominalDiffTime -> [Table] -> [Reservation] -> Reservation -> Bool
+canAccept _ tables reservations r =
+  let capacity = sum $ tableSeats <$> tables
+      reservedSeats = sum $ reservationQuantity <$> reservations
+  in if null tables
+      then False
+      else reservedSeats + reservationQuantity r <= capacity
 
-tryAccept :: [Table]
+tryAccept :: NominalDiffTime
+          -> [Table]
           -> Reservation
           -> ReservationsProgram (Either (APIError ByteString) ())
-tryAccept tables r = do
+tryAccept seatingDuration tables r = do
   now <- currentTime
-  let _ = canAccept tables [] r
+  let _ = canAccept seatingDuration tables [] r
   traverse createReservation $ validateReservation now r
 
 modifyReservationFieldLabel :: String -> String

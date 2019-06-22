@@ -24,4 +24,4 @@ runApp connStr port = do
   putStrLn "Press Ctrl + C to stop the server."
   let hoistSQL =
         hoistServer api $ runInSQLServerAndOnSystemClock $ pack connStr
-  run port $ serve api $ hoistSQL $ server []
+  run port $ serve api $ hoistSQL $ server 150 []

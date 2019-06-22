@@ -7,6 +7,7 @@ import Control.Monad.Except
 import Control.Monad.Free (toFreeT)
 import Control.Monad.Trans.Free
 import Data.Functor.Sum
+import Data.Time.Clock
 import Data.Time.LocalTime
 import Data.Text
 import Servant
@@ -39,9 +40,10 @@ runInSQLServerAndOnSystemClock connStr = iterT go
 
 type ReservationsProgramT = FreeT (Sum ReservationsInstruction ClockInstruction)
 
-reservationServer :: [Table]
+reservationServer :: NominalDiffTime
+                  -> [Table]
                   -> ServerT ReservationAPI (ReservationsProgramT Handler)
-reservationServer tables = getReservation :<|> postReservation
+reservationServer seatingDuration tables = getReservation :<|> postReservation
   where
     getReservation rid = do
       mr <- toFreeT $ readReservation rid
@@ -49,12 +51,13 @@ reservationServer tables = getReservation :<|> postReservation
         Just r -> return r
         Nothing -> throwError err404
     postReservation r = do
-      e <- toFreeT $ tryAccept tables r
+      e <- toFreeT $ tryAccept seatingDuration tables r
       case e of
         Right () -> return ()
         Left (ValidationError err) -> throwError $ err400 { errBody = err }
         Left  (ExecutionError err) -> throwError $ err400 { errBody = err }
 
-server :: [Table]
+server :: NominalDiffTime
+       -> [Table]
        -> ServerT API (ReservationsProgramT Handler)
 server = reservationServer
