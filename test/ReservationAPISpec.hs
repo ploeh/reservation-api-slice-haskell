@@ -38,7 +38,7 @@ newtype ValidReservation = ValidReservation Reservation deriving (Eq, Show)
 
 instance Arbitrary ValidReservation where
   arbitrary = do
-    rid <- arbitrary
+    rid <- arbitrary `suchThat` (/= nil)
     d <- (\dt -> addLocalTime (getPositive dt) now2019) <$> arbitrary
     n <- arbitrary
     e <- arbitrary
@@ -79,6 +79,12 @@ reservationAPISpec = describe "Reservation API" $ do
       (ValidReservation r) -> do
       let actual = postJSON "/reservations" $ encode r
       actual `shouldRespondWith` 200
+
+    it "fails when reservation is POSTed with the nil UUID" $ WQC.property $ \
+      (ValidReservation r) -> do
+      let invalid = r { reservationId = nil }
+      let actual = postJSON "/reservations" $ encode invalid
+      actual `shouldRespondWith` 400
 
     it "fails when reservation is POSTed with invalid quantity" $ WQC.property $ \
       (ValidReservation r) (NonNegative q) -> do

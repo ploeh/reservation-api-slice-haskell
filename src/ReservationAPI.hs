@@ -45,6 +45,9 @@ createReservation r = liftF $ InL $ CreateReservation r ()
 currentTime :: ReservationsProgram LocalTime
 currentTime = liftF $ InR $ CurrentTime id
 
+validateNotEqual :: Eq a => e -> a -> a -> Either e a
+validateNotEqual e x y = if x /= y then Right y else Left e
+
 validatePositive :: (Ord b, Num b) => a -> b -> Either a b
 validatePositive e x = if x > 0 then Right x else Left e
 
@@ -60,11 +63,12 @@ validateReservation :: LocalTime
                     -> Reservation
                     -> Either (APIError ByteString) Reservation
 validateReservation now (Reservation rid d n e q) = do
+  vid <- validateNotEqual (ValidationError "ID can't be the nil UUID") nil rid
   vd <- validateLessThan
           (ValidationError "Reservation time must be in the future") now d
   vq <- validatePositive
           (ValidationError "Quantity must be a positive integer") q
-  return $ Reservation rid vd n e vq
+  return $ Reservation vid vd n e vq
 
 tryAccept :: Reservation
           -> ReservationsProgram (Either (APIError ByteString) ())
