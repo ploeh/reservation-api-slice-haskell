@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ViewPatterns #-}
 module ReservationAPISpec where
 
 import Control.Monad
@@ -27,7 +28,8 @@ import ReservationAPI
 import Servant
 import API
 
-newtype AnyReservation = AnyReservation Reservation deriving (Eq, Show)
+newtype AnyReservation =
+  AnyReservation { getAnyReservation :: Reservation } deriving (Eq, Show)
 
 instance Arbitrary AnyReservation where
   arbitrary =
@@ -49,9 +51,14 @@ reservationAPISpec :: Spec
 reservationAPISpec = describe "Reservations" $ do
   describe "Accept" $ do
     it "rejects any reservation when restaurant has no tables" $ property $ \
-      (AnyReservation r) -> do
-      let actual = canAccept [] r
+      (fmap getAnyReservation -> rs) (AnyReservation r) -> do
+      let actual = canAccept [] rs r
       actual `shouldBe` False
+
+    it "accepts reservation when table is available" $ property $ \
+      (ValidReservation r) -> do
+      let actual = canAccept [Table $ reservationQuantity r] [] r
+      actual `shouldBe` True
 
   describe "Reservation JSON" $ do
     it "renders correctly" $ do
