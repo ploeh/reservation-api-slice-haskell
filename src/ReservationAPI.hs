@@ -70,10 +70,17 @@ validateReservation now (Reservation rid d n e q) = do
           (ValidationError "Quantity must be a positive integer") q
   return $ Reservation vid vd n e vq
 
-tryAccept :: Reservation
+data Table = Table { tableSeats :: Int } deriving (Eq, Show, Read)
+
+canAccept :: [Table] -> Reservation -> Bool
+canAccept _ _ = False
+
+tryAccept :: [Table]
+          -> Reservation
           -> ReservationsProgram (Either (APIError ByteString) ())
-tryAccept r = do
+tryAccept tables r = do
   now <- currentTime
+  let _ = canAccept tables r
   traverse createReservation $ validateReservation now r
 
 modifyReservationFieldLabel :: String -> String

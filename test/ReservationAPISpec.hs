@@ -46,7 +46,13 @@ instance Arbitrary ValidReservation where
     return $ ValidReservation $ Reservation rid d n e q
 
 reservationAPISpec :: Spec
-reservationAPISpec = describe "Reservation API" $ do
+reservationAPISpec = describe "Reservations" $ do
+  describe "Accept" $ do
+    it "rejects any reservation when restaurant has no tables" $ property $ \
+      (AnyReservation r) -> do
+      let actual = canAccept [] r
+      actual `shouldBe` False
+
   describe "Reservation JSON" $ do
     it "renders correctly" $ do
       let rid = fromWords 872411231 2362592316 2161598850 3450687078
@@ -140,5 +146,4 @@ runInFakeDBAndIn2019 ref = iterT go
 app :: IO Application
 app = do
   ref <- newIORef Map.empty
-  return $
-    serve api $ hoistServer api (runInFakeDBAndIn2019 ref) server
+  return $ serve api $ hoistServer api (runInFakeDBAndIn2019 ref) $ server []
