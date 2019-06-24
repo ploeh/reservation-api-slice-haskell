@@ -63,8 +63,9 @@ tests:
     - containers
     - http-types
     - wai-extra
-    - hspec
-    - hspec-wai
-    - hspec-wai-json
+    - test-framework
+    - test-framework-hunit
+    - test-framework-quickcheck2
+    - HUnit
     - QuickCheck
     - quickcheck-instances

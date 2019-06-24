@@ -16,11 +16,13 @@ import Data.Map.Strict (Map)
 import Data.Time.LocalTime
 import Data.Time.Clock
 import Data.Aeson (encode, decode)
-import Network.HTTP.Types (methodPost)
-import Network.Wai.Test (SResponse)
-import Test.Hspec
-import Test.Hspec.Wai
-import qualified Test.Hspec.Wai.QuickCheck as WQC
+import Network.HTTP.Types (methodGet, methodPost)
+import Network.Wai
+import Network.Wai.Test
+import Test.Framework (Test, testGroup)
+import Test.Framework.Providers.QuickCheck2 (testProperty)
+import Test.Framework.Providers.HUnit
+import Test.HUnit.Base hiding (Test, Testable)
 import Test.QuickCheck
 import Test.QuickCheck.Instances.Time ()
 import Test.QuickCheck.Instances.UUID ()
@@ -47,83 +49,99 @@ instance Arbitrary ValidReservation where
     (Positive q) <- arbitrary
     return $ ValidReservation $ Reservation rid d n e q
 
-reservationAPISpec :: Spec
-reservationAPISpec = describe "Reservations" $ do
-  describe "Accept" $ do
-    it "rejects any reservation when restaurant has no tables" $ property $ \
-      sd (fmap getAnyReservation -> rs) (AnyReservation r) -> do
-      let actual = canAccept sd [] rs r
-      actual `shouldBe` False
+reservationAPITests :: [Test]
+reservationAPITests =
+  [
+    testGroup "Reservations" [
+      testGroup "Accept" [
+        testProperty "rejects any reservation when restaurant has no tables" $ \
+          sd (fmap getAnyReservation -> rs) (AnyReservation r) -> do
+          let actual = canAccept sd [] rs r
+          False === actual
+        ,
+        testProperty "accepts reservation when table is available" $ \
+          sd (ValidReservation r) -> do
+          let actual = canAccept sd [Table $ reservationQuantity r] [] r
+          True === actual
+        ,
+        testProperty "rejects reservation when table is already taken" $ \
+          sd (ValidReservation r) rid -> do
+          let reservations = [r { reservationId = rid }]
+          let actual = canAccept sd [Table $ reservationQuantity r] reservations r
+          False === actual
+      ]
+      ,
+      testGroup "Reservation JSON" $ 
+        hUnitTestToTests (TestLabel "renders correctly" $ do
+          let rid = fromWords 872411231 2362592316 2161598850 3450687078
+          let rd = LocalTime (fromGregorian 2019 4 12) (TimeOfDay 19 0 0)
 
-    it "accepts reservation when table is available" $ property $ \
-      sd (ValidReservation r) -> do
-      let actual = canAccept sd [Table $ reservationQuantity r] [] r
-      actual `shouldBe` True
+          let json = encode $ Reservation rid rd "Jo" "j@example.com" 3
 
-    it "rejects reservation when table is already taken" $ property $ \
-      sd (ValidReservation r) rid -> do
-      let reservations = [r { reservationId = rid }]
-      let actual = canAccept sd [Table $ reservationQuantity r] reservations r
-      actual `shouldBe` False
-
-  describe "Reservation JSON" $ do
-    it "renders correctly" $ do
-      let rid = fromWords 872411231 2362592316 2161598850 3450687078
-      let rd = LocalTime (fromGregorian 2019 4 12) (TimeOfDay 19 0 0)
-
-      let json = encode $ Reservation rid rd "Jo" "j@example.com" 3
-
-      json `shouldBe` "{\"id\":\"33fff05f-8cd2-4c3c-80d7-6182cdad4e66\",\
-                      \\"date\":\"2019-04-12T19:00:00\",\
-                      \\"name\":\"Jo\",\
-                      \\"email\":\"j@example.com\",\
-                      \\"quantity\":3}"
-
-    it "round-trips" $ property $ \(AnyReservation r) -> do
-      let json = encode r
-      let actual = decode json
-      actual `shouldBe` Just r
-
-  with app $ describe "/reservations/" $ do
-    it "responds with 404 when no reservation exists" $ WQC.property $ \rid ->
-      get ("/reservations/" <> toASCIIBytes rid) `shouldRespondWith` 404
-
-    it "responds with 200 after reservation is added" $ WQC.property $ \
-      (ValidReservation r) -> do
-      _ <- postJSON "/reservations" $ encode r
-      let actual = get $ "/reservations/" <> toASCIIBytes (reservationId r)
-      actual `shouldRespondWith` 200
-
-    it "succeeds when valid reservation is POSTed" $ WQC.property $ \
-      (ValidReservation r) -> do
-      let actual = postJSON "/reservations" $ encode r
-      actual `shouldRespondWith` 200
-
-    it "fails when reservation is POSTed with the nil UUID" $ WQC.property $ \
-      (ValidReservation r) -> do
-      let invalid = r { reservationId = nil }
-      let actual = postJSON "/reservations" $ encode invalid
-      actual `shouldRespondWith` 400
-
-    it "fails when reservation is POSTed with invalid quantity" $ WQC.property $ \
-      (ValidReservation r) (NonNegative q) -> do
-      let invalid = r { reservationQuantity = negate q }
-      let actual = postJSON "/reservations" $ encode invalid
-      actual `shouldRespondWith` 400
-
-    it "fails when past reservation is POSTed" $ WQC.property $ \
-      (ValidReservation r) (Positive diffTime) -> do
-      let invalid =
-            r { reservationDate = addLocalTime (negate diffTime) now2019 }
-      let actual = postJSON "/reservations" $ encode invalid
-      actual `shouldRespondWith` 400
+          json ~?= "{\"id\":\"33fff05f-8cd2-4c3c-80d7-6182cdad4e66\",\
+                    \\"date\":\"2019-04-12T19:00:00\",\
+                    \\"name\":\"Jo\",\
+                    \\"email\":\"j@example.com\",\
+                    \\"quantity\":3}"
+        ) ++ [
+        testProperty "round-trips" $ \(AnyReservation r) -> do
+          let json = encode r
+          let actual = decode json
+          Just r === actual
+      ]
+      ,
+      testGroup "/reservations/" [
+        testProperty "responds with 404 when no reservation exists" $ withApp <$> \
+          rid -> do
+          actual <- get $ "/reservations/" <> toASCIIBytes rid
+          assertStatus 404 actual
+        ,
+        testProperty "responds with 200 after reservation is added" $ withApp <$> \
+          (ValidReservation r) -> do
+          _ <- postJSON "/reservations" $ encode r
+          actual <- get $ "/reservations/" <> toASCIIBytes (reservationId r)
+          assertStatus 200 actual
+        ,
+        testProperty "succeeds when valid reservation is POSTed" $ withApp <$> \
+          (ValidReservation r) -> do
+          actual <- postJSON "/reservations" $ encode r
+          assertStatus 200 actual
+        ,
+        testProperty "fails when reservation is POSTed with the nil UUID" $ withApp <$> \
+          (ValidReservation r) -> do
+          let invalid = r { reservationId = nil }
+          actual <- postJSON "/reservations" $ encode invalid
+          assertStatus 400 actual
+        ,
+        testProperty "fails when reservation is POSTed with invalid quantity" $ withApp <$> \
+          (ValidReservation r, NonNegative q) -> do
+          let invalid = r { reservationQuantity = negate q }
+          actual <- postJSON "/reservations" $ encode invalid
+          assertStatus 400 actual
+        ,
+        testProperty "fails when past reservation is POSTed" $ withApp <$> \
+          (ValidReservation r, Positive diffTime) -> do
+          let invalid =
+                r { reservationDate = addLocalTime (negate diffTime) now2019 }
+          actual <- postJSON "/reservations" $ encode invalid
+          assertStatus 400 actual
+      ]
+    ]
+  ]
 
 -- Not in time 1.8.0.2
 addLocalTime :: NominalDiffTime -> LocalTime -> LocalTime
 addLocalTime x = utcToLocalTime utc . addUTCTime x . localTimeToUTC utc
 
-postJSON :: BS.ByteString -> LBS.ByteString -> WaiSession SResponse
-postJSON url = request methodPost url [("Content-Type", "application/json")]
+get :: BS.ByteString -> Session SResponse
+get url = request $ setPath defaultRequest { requestMethod = methodGet } url
+
+postJSON :: BS.ByteString -> LBS.ByteString -> Session SResponse
+postJSON url json = srequest $ SRequest req json
+  where
+    req = setPath defaultRequest
+            { requestMethod = methodPost
+            , requestHeaders = [("Content-Type", "application/json")]} url
 
 type DB = Map UUID Reservation
 
@@ -160,3 +178,6 @@ app :: IO Application
 app = do
   ref <- newIORef Map.empty
   return $ serve api $ hoistServer api (runInFakeDBAndIn2019 ref) $ server 150 []
+
+withApp :: Testable prop => Session prop -> Property
+withApp = idempotentIOProperty . (app >>=) . runSession
