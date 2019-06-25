@@ -31,92 +31,88 @@ import Servant
 import API
 
 reservationAPITests :: [Test]
-reservationAPITests =
-  [
-    testGroup "Reservations" [
-      testGroup "Accept" $ [
-        testProperty "rejects any reservation when restaurant has no tables" $ \
-          sd (fmap getAnyReservation -> rs) (AnyReservation r) -> do
-          let actual = canAccept sd [] rs r
-          False === actual
-        ,
-        testProperty "accepts reservation when table is available" $ \
-          sd (ValidReservation r) -> do
-          let actual = canAccept sd [Table $ reservationQuantity r] [] r
-          True === actual
-        ,
-        testProperty "rejects reservation when table is already taken" $ \
-          sd (ValidReservation r) rid -> do
-          let reservations = [r { reservationId = rid }]
-          let actual = canAccept sd [Table $ reservationQuantity r] reservations r
-          False === actual
-        ] ++ 
-        hUnitTestToTests ("responds correctly in specific scenarios" ~: do
-          (tables, rs, r, expected) <-
-            [
-              ([Table 1, Table 1], [], reserve 2, False)
-            ]
-          let actual = canAccept 120 tables rs r
-          return $ expected ~=? actual
-        )
-      ,
-      testGroup "Reservation JSON" $ 
-        hUnitTestToTests (TestLabel "renders correctly" $ do
-          let rid = fromWords 872411231 2362592316 2161598850 3450687078
-          let rd = LocalTime (fromGregorian 2019 4 12) (TimeOfDay 19 0 0)
+reservationAPITests = [
+  testGroup "Accept" $ [
+    testProperty "rejects any reservation when restaurant has no tables" $ \
+      sd (fmap getAnyReservation -> rs) (AnyReservation r) -> do
+      let actual = canAccept sd [] rs r
+      False === actual
+    ,
+    testProperty "accepts reservation when table is available" $ \
+      sd (ValidReservation r) -> do
+      let actual = canAccept sd [Table $ reservationQuantity r] [] r
+      True === actual
+    ,
+    testProperty "rejects reservation when table is already taken" $ \
+      sd (ValidReservation r) rid -> do
+      let reservations = [r { reservationId = rid }]
+      let actual = canAccept sd [Table $ reservationQuantity r] reservations r
+      False === actual
+    ] ++ 
+    hUnitTestToTests ("responds correctly in specific scenarios" ~: do
+      (tables, rs, r, expected) <-
+        [
+          ([Table 1, Table 1], [], reserve 2, False)
+        ]
+      let actual = canAccept 120 tables rs r
+      return $ expected ~=? actual
+    )
+  ,
+  testGroup "Reservation JSON" $ 
+    hUnitTestToTests (TestLabel "renders correctly" $ do
+      let rid = fromWords 872411231 2362592316 2161598850 3450687078
+      let rd = LocalTime (fromGregorian 2019 4 12) (TimeOfDay 19 0 0)
 
-          let json = encode $ Reservation rid rd "Jo" "j@example.com" 3
+      let json = encode $ Reservation rid rd "Jo" "j@example.com" 3
 
-          json ~?= "{\"id\":\"33fff05f-8cd2-4c3c-80d7-6182cdad4e66\",\
-                    \\"date\":\"2019-04-12T19:00:00\",\
-                    \\"name\":\"Jo\",\
-                    \\"email\":\"j@example.com\",\
-                    \\"quantity\":3}"
-        ) ++ [
-        testProperty "round-trips" $ \(AnyReservation r) -> do
-          let json = encode r
-          let actual = decode json
-          Just r === actual
-      ]
-      ,
-      testGroup "/reservations/" [
-        testProperty "responds with 404 when no reservation exists" $ withApp <$> \
-          rid -> do
-          actual <- get $ "/reservations/" <> toASCIIBytes rid
-          assertStatus 404 actual
-        ,
-        testProperty "responds with 200 after reservation is added" $ withApp <$> \
-          (ValidReservation r) -> do
-          _ <- postJSON "/reservations" $ encode r
-          actual <- get $ "/reservations/" <> toASCIIBytes (reservationId r)
-          assertStatus 200 actual
-        ,
-        testProperty "succeeds when valid reservation is POSTed" $ withApp <$> \
-          (ValidReservation r) -> do
-          actual <- postJSON "/reservations" $ encode r
-          assertStatus 200 actual
-        ,
-        testProperty "fails when reservation is POSTed with the nil UUID" $ withApp <$> \
-          (ValidReservation r) -> do
-          let invalid = r { reservationId = nil }
-          actual <- postJSON "/reservations" $ encode invalid
-          assertStatus 400 actual
-        ,
-        testProperty "fails when reservation is POSTed with invalid quantity" $ withApp <$> \
-          (ValidReservation r, NonNegative q) -> do
-          let invalid = r { reservationQuantity = negate q }
-          actual <- postJSON "/reservations" $ encode invalid
-          assertStatus 400 actual
-        ,
-        testProperty "fails when past reservation is POSTed" $ withApp <$> \
-          (ValidReservation r, Positive diffTime) -> do
-          let invalid =
-                r { reservationDate = addLocalTime (negate diffTime) now2019 }
-          actual <- postJSON "/reservations" $ encode invalid
-          assertStatus 400 actual
-      ]
-    ]
+      json ~?= "{\"id\":\"33fff05f-8cd2-4c3c-80d7-6182cdad4e66\",\
+                \\"date\":\"2019-04-12T19:00:00\",\
+                \\"name\":\"Jo\",\
+                \\"email\":\"j@example.com\",\
+                \\"quantity\":3}"
+    ) ++ [
+    testProperty "round-trips" $ \(AnyReservation r) -> do
+      let json = encode r
+      let actual = decode json
+      Just r === actual
   ]
+  ,
+  testGroup "/reservations/" [
+    testProperty "responds with 404 when no reservation exists" $ withApp <$> \
+      rid -> do
+      actual <- get $ "/reservations/" <> toASCIIBytes rid
+      assertStatus 404 actual
+    ,
+    testProperty "responds with 200 after reservation is added" $ withApp <$> \
+      (ValidReservation r) -> do
+      _ <- postJSON "/reservations" $ encode r
+      actual <- get $ "/reservations/" <> toASCIIBytes (reservationId r)
+      assertStatus 200 actual
+    ,
+    testProperty "succeeds when valid reservation is POSTed" $ withApp <$> \
+      (ValidReservation r) -> do
+      actual <- postJSON "/reservations" $ encode r
+      assertStatus 200 actual
+    ,
+    testProperty "fails when reservation is POSTed with the nil UUID" $ withApp <$> \
+      (ValidReservation r) -> do
+      let invalid = r { reservationId = nil }
+      actual <- postJSON "/reservations" $ encode invalid
+      assertStatus 400 actual
+    ,
+    testProperty "fails when reservation is POSTed with invalid quantity" $ withApp <$> \
+      (ValidReservation r, NonNegative q) -> do
+      let invalid = r { reservationQuantity = negate q }
+      actual <- postJSON "/reservations" $ encode invalid
+      assertStatus 400 actual
+    ,
+    testProperty "fails when past reservation is POSTed" $ withApp <$> \
+      (ValidReservation r, Positive diffTime) -> do
+      let invalid =
+            r { reservationDate = addLocalTime (negate diffTime) now2019 }
+      actual <- postJSON "/reservations" $ encode invalid
+      assertStatus 400 actual
+  ]]
 
 newtype AnyReservation =
   AnyReservation { getAnyReservation :: Reservation } deriving (Eq, Show)
