@@ -71,7 +71,7 @@ validateReservation now (Reservation rid d n e q) = do
           (ValidationError "Quantity must be a positive integer") q
   return $ Reservation vid vd n e vq
 
-data Table = Table { tableSeats :: Int } deriving (Eq, Show, Read)
+newtype Table = Table { tableSeats :: Int } deriving (Eq, Show, Read)
 
 canAccept :: NominalDiffTime -> [Table] -> [Reservation] -> Reservation -> Bool
 canAccept _ tables reservations r =
