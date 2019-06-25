@@ -34,19 +34,19 @@ reservationAPITests :: [Test]
 reservationAPITests = [
   testGroup "Accommodate" $ [
     testProperty "rejects any reservation when restaurant has no tables" $ \
-      sd (fmap getAnyReservation -> rs) (AnyReservation r) -> do
-      let actual = canAccommodate sd [] rs r
+      (fmap getAnyReservation -> rs) (AnyReservation r) -> do
+      let actual = canAccommodate [] rs r
       False === actual
     ,
     testProperty "accepts reservation when table is available" $ \
-      sd (ValidReservation r) -> do
-      let actual = canAccommodate sd [Table $ reservationQuantity r] [] r
+      (ValidReservation r) -> do
+      let actual = canAccommodate [Table $ reservationQuantity r] [] r
       True === actual
     ,
     testProperty "rejects reservation when table is already taken" $ \
-      sd (ValidReservation r) rid -> do
+      (ValidReservation r) rid -> do
       let reservations = [r { reservationId = rid }]
-      let actual = canAccommodate sd [Table $ reservationQuantity r] reservations r
+      let actual = canAccommodate [Table $ reservationQuantity r] reservations r
       False === actual
     ] ++ 
     hUnitTestToTests ("responds correctly in specific scenarios" ~: do
@@ -54,7 +54,7 @@ reservationAPITests = [
         [
           ([Table 1, Table 1], [], reserve 2, False)
         ]
-      let actual = canAccommodate 120 tables rs r
+      let actual = canAccommodate tables rs r
       return $ expected ~=? actual
     )
   ,
