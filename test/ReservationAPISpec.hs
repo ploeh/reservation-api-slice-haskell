@@ -23,7 +23,7 @@ import Test.Framework (Test, testGroup)
 import Test.Framework.Providers.QuickCheck2 (testProperty)
 import Test.Framework.Providers.HUnit
 import Test.HUnit.Base hiding (Test, Testable)
-import Test.QuickCheck
+import Test.QuickCheck hiding (tables)
 import Test.QuickCheck.Instances.Time ()
 import Test.QuickCheck.Instances.UUID ()
 import ReservationAPI
@@ -49,11 +49,23 @@ instance Arbitrary ValidReservation where
     (Positive q) <- arbitrary
     return $ ValidReservation $ Reservation rid d n e q
 
+
+-- Create a reservation with a particular quantity, leaving all other values at
+-- some useful default. This function is useful to create test cases for the
+-- acceptance logic.
+reserve :: Int -> Reservation
+reserve =
+  Reservation
+    (fromWords 2982308526 3666889355 2898800936 1462034590) -- any arbitrary ID
+    (addLocalTime nominalDay now2019) -- One day in 'the future'
+    ""
+    ""
+
 reservationAPITests :: [Test]
 reservationAPITests =
   [
     testGroup "Reservations" [
-      testGroup "Accept" [
+      testGroup "Accept" $ [
         testProperty "rejects any reservation when restaurant has no tables" $ \
           sd (fmap getAnyReservation -> rs) (AnyReservation r) -> do
           let actual = canAccept sd [] rs r
@@ -69,7 +81,15 @@ reservationAPITests =
           let reservations = [r { reservationId = rid }]
           let actual = canAccept sd [Table $ reservationQuantity r] reservations r
           False === actual
-      ]
+        ] ++ 
+        hUnitTestToTests ("responds correctly in specific scenarios" ~: do
+          (tables, rs, r, expected) <-
+            [
+              ([Table 1, Table 1], [], reserve 2, False)
+            ]
+          let actual = canAccept 120 tables rs r
+          return $ expected ~=? actual
+        )
       ,
       testGroup "Reservation JSON" $ 
         hUnitTestToTests (TestLabel "renders correctly" $ do

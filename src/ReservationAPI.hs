@@ -76,10 +76,12 @@ data Table = Table { tableSeats :: Int } deriving (Eq, Show, Read)
 canAccept :: NominalDiffTime -> [Table] -> [Reservation] -> Reservation -> Bool
 canAccept _ tables reservations r =
   let capacity = sum $ tableSeats <$> tables
+      largestTable = maximum $ tableSeats <$> tables
       reservedSeats = sum $ reservationQuantity <$> reservations
+      q = reservationQuantity r
   in if null tables
       then False
-      else reservedSeats + reservationQuantity r <= capacity
+      else reservedSeats + q <= capacity && q <= largestTable
 
 tryAccept :: NominalDiffTime
           -> [Table]
