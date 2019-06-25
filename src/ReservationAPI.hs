@@ -73,13 +73,13 @@ validateReservation now (Reservation rid d n e q) = do
 
 newtype Table = Table { tableSeats :: Int } deriving (Eq, Show, Read)
 
-canAccommodate :: [Table] -> [Reservation] -> Reservation -> Bool
-canAccommodate tables reservations r =
-  let capacity = sum $ tableSeats <$> tables
-      largestTable = maximum $ tableSeats <$> tables
-      reservedSeats = sum $ reservationQuantity <$> reservations
-      q = reservationQuantity r
-  in if null tables
+canAccommodate :: (Foldable f, Foldable g, Ord a, Num a)
+               => f a -> g a -> a -> Bool
+canAccommodate resources reservations q =
+  let capacity = sum resources
+      largestTable = maximum resources
+      reservedSeats = sum reservations
+  in if null resources
       then False
       else reservedSeats + q <= capacity && q <= largestTable
 
@@ -89,7 +89,7 @@ tryAccept :: NominalDiffTime
           -> ReservationsProgram (Either (APIError ByteString) ())
 tryAccept _ tables r = do
   now <- currentTime
-  let _ = canAccommodate tables [] r
+  let _ = canAccommodate (tableSeats <$> tables) [] $ reservationQuantity r
   traverse createReservation $ validateReservation now r
 
 modifyReservationFieldLabel :: String -> String

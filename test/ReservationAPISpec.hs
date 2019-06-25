@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module ReservationAPISpec where
 
 import Control.Monad
@@ -34,27 +34,27 @@ reservationAPITests :: [Test]
 reservationAPITests = [
   testGroup "Accommodate" $ [
     testProperty "rejects any reservation when restaurant has no tables" $ \
-      (fmap getAnyReservation -> rs) (AnyReservation r) -> do
-      let actual = canAccommodate [] rs r
+      (tables :: [Int]) q -> do
+      let actual = canAccommodate [] tables q
       False === actual
     ,
     testProperty "accepts reservation when table is available" $ \
-      (ValidReservation r) -> do
-      let actual = canAccommodate [Table $ reservationQuantity r] [] r
+      (q :: Int) -> do
+      let actual = canAccommodate [q] [] q
       True === actual
     ,
     testProperty "rejects reservation when table is already taken" $ \
-      (ValidReservation r) rid -> do
-      let reservations = [r { reservationId = rid }]
-      let actual = canAccommodate [Table $ reservationQuantity r] reservations r
+      (Positive (q :: Int)) -> do
+      let reservations = [q]
+      let actual = canAccommodate [q] reservations q
       False === actual
     ] ++ 
     hUnitTestToTests ("responds correctly in specific scenarios" ~: do
-      (tables, rs, r, expected) <-
+      (tables :: [Int], reservations, q, expected) <-
         [
-          ([Table 1, Table 1], [], reserve 2, False)
+          ([1, 1], [], 2, False)
         ]
-      let actual = canAccommodate tables rs r
+      let actual = canAccommodate tables reservations q
       return $ expected ~=? actual
     )
   ,
@@ -132,17 +132,6 @@ instance Arbitrary ValidReservation where
     e <- arbitrary
     (Positive q) <- arbitrary
     return $ ValidReservation $ Reservation rid d n e q
-
--- Create a reservation with a particular quantity, leaving all other values at
--- some useful default. This function is useful to create test cases for the
--- acceptance logic.
-reserve :: Int -> Reservation
-reserve =
-  Reservation
-    (fromWords 2982308526 3666889355 2898800936 1462034590) -- any arbitrary ID
-    (addLocalTime nominalDay now2019) -- One day in 'the future'
-    ""
-    ""
 
 -- Not in time 1.8.0.2
 addLocalTime :: NominalDiffTime -> LocalTime -> LocalTime
