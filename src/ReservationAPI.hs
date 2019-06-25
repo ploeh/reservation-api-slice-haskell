@@ -73,7 +73,20 @@ validateReservation now (Reservation rid d n e q) = do
           (ValidationError "Quantity must be a positive integer") q
   return $ Reservation vid vd n e vq
 
-newtype Table = Table { tableSeats :: Int } deriving (Eq, Show, Read)
+removeNonOverlappingReservations :: NominalDiffTime
+                                 -> [Reservation]
+                                 ->  Reservation
+                                 -> [Reservation]
+removeNonOverlappingReservations seatingDuration reservations r =
+  let reservationStartsAt = reservationDate r
+      reservationEndsAt = addLocalTime seatingDuration reservationStartsAt
+      overlaps x = let t = reservationDate x
+                   in reservationStartsAt <= t && t < reservationEndsAt
+  in filter overlaps reservations
+
+-- Not in time 1.8.0.2
+addLocalTime :: NominalDiffTime -> LocalTime -> LocalTime
+addLocalTime x = utcToLocalTime utc . addUTCTime x . localTimeToUTC utc
 
 canAccommodate :: (Foldable f, Foldable g, Ord a, Num a)
                => f a -> g a -> a -> Bool
@@ -83,6 +96,8 @@ canAccommodate resources reservations q =
       fits reservation resource = reservation <= resource
       remainingResources = deleteFirstsBy fits resourceList reservationList
   in any (q <=) remainingResources
+  
+newtype Table = Table { tableSeats :: Int } deriving (Eq, Show, Read)
 
 tryAccept :: NominalDiffTime
           -> [Table]

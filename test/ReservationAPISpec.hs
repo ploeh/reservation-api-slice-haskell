@@ -15,7 +15,6 @@ import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
 import Data.Time.LocalTime
-import Data.Time.Clock
 import Data.Aeson (encode, decode)
 import Network.HTTP.Types (methodGet, methodPost)
 import Network.Wai
@@ -33,6 +32,25 @@ import API
 
 reservationAPITests :: [Test]
 reservationAPITests = [
+  testGroup "Remove non-overlapping reservations" [
+    testProperty "returns reservation if already reserved" $ \
+    (Positive sd) (AnyReservation r) -> do
+      let actual = removeNonOverlappingReservations sd [r] r
+      [r] === actual
+    ,
+    testProperty "returns no reservations that start a seating duration after the reservation" $ \
+      (Positive sd) (fmap getValidReservation -> rs) (ValidReservation r) -> do
+      let actual = removeNonOverlappingReservations sd rs r
+      False ===
+        any (\x -> addLocalTime sd (reservationDate r) < reservationDate x) actual
+    ,
+    testProperty "returns no reservations that end a seating duration before the reservation" $ \
+      (Positive sd) (fmap getValidReservation -> rs) (ValidReservation r) -> do
+      let actual = removeNonOverlappingReservations sd rs r
+      False ===
+        any (\x -> addLocalTime sd (reservationDate x) < reservationDate r) actual
+  ]
+  ,
   testGroup "Accommodate" $ [
     testProperty "rejects any reservation when restaurant has no tables" $ \
       (tables :: [Int]) q -> do
@@ -157,7 +175,8 @@ instance Arbitrary AnyReservation where
     AnyReservation <$>
     liftM5 Reservation arbitrary arbitrary arbitrary arbitrary arbitrary
 
-newtype ValidReservation = ValidReservation Reservation deriving (Eq, Show)
+newtype ValidReservation =
+  ValidReservation { getValidReservation :: Reservation } deriving (Eq, Show)
 
 instance Arbitrary ValidReservation where
   arbitrary = do
@@ -167,10 +186,6 @@ instance Arbitrary ValidReservation where
     e <- arbitrary
     (Positive q) <- arbitrary
     return $ ValidReservation $ Reservation rid d n e q
-
--- Not in time 1.8.0.2
-addLocalTime :: NominalDiffTime -> LocalTime -> LocalTime
-addLocalTime x = utcToLocalTime utc . addUTCTime x . localTimeToUTC utc
 
 get :: BS.ByteString -> Session SResponse
 get url = request $ setPath defaultRequest { requestMethod = methodGet } url
