@@ -6,8 +6,10 @@
 module ReservationAPI where
 
 import Data.Char
+import Data.List
+import Data.Foldable
 import Data.ByteString.Lazy (ByteString)
-import Data.UUID hiding (null)
+import Data.UUID
 import Data.Time.Clock
 import Data.Time.LocalTime
 import Data.Functor.Sum
@@ -76,12 +78,11 @@ newtype Table = Table { tableSeats :: Int } deriving (Eq, Show, Read)
 canAccommodate :: (Foldable f, Foldable g, Ord a, Num a)
                => f a -> g a -> a -> Bool
 canAccommodate resources reservations q =
-  let capacity = sum resources
-      largestTable = maximum resources
-      reservedSeats = sum reservations
-  in if null resources
-      then False
-      else reservedSeats + q <= capacity && q <= largestTable
+  let resourceList = sort $ toList resources
+      reservationList = sort $ toList reservations
+      fits reservation resource = reservation <= resource
+      remainingResources = deleteFirstsBy fits resourceList reservationList
+  in any (q <=) remainingResources
 
 tryAccept :: NominalDiffTime
           -> [Table]

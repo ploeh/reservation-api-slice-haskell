@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module ReservationAPISpec where
 
@@ -39,20 +40,54 @@ reservationAPITests = [
       False === actual
     ,
     testProperty "accepts reservation when table is available" $ \
-      (q :: Int) -> do
+      (q :: Word) -> do
       let actual = canAccommodate [q] [] q
       True === actual
     ,
     testProperty "rejects reservation when table is already taken" $ \
-      (Positive (q :: Int)) -> do
+      (Positive (q :: Integer)) -> do
       let reservations = [q]
       let actual = canAccommodate [q] reservations q
+      False === actual
+    ,
+    testProperty "rejects reservation over total capacity" $ \
+      (fmap getPositive -> resources :: [Int]) (Positive i) -> do
+      let q = sum resources + i
+      let actual = canAccommodate resources [] q
+      False === actual
+    ,
+    testProperty "rejects any reservation when sold out" $ \
+      (fmap getPositive -> resources :: [Int]) (Positive q) -> do
+      let reservations = resources
+      let actual = canAccommodate resources reservations q
+      False === actual
+    ,
+    testProperty "rejects any reservation larger than the biggest table" $ \
+      (fmap getPositive . getNonEmpty -> resources :: [Int]) (Positive i) -> do
+      let biggestTable = maximum resources
+      let actual = canAccommodate resources [] $ i + biggestTable
       False === actual
     ] ++ 
     hUnitTestToTests ("responds correctly in specific scenarios" ~: do
       (tables :: [Int], reservations, q, expected) <-
         [
-          ([1, 1], [], 2, False)
+          ([1, 1], [], 2, False),
+          ([2, 2], [2], 2, True),
+          ([3, 2], [3], 2, True),
+          ([2, 4], [3], 3, False),
+          ([2, 4], [3], 2, True),
+          ([2, 4], [4], 3, False),
+          ([2, 4], [4], 2, True),
+          ([2, 4], [2], 3, True),          
+          ([4, 2], [3], 3, False),
+          ([4, 2], [3], 2, True),
+          ([4, 2], [4], 3, False),
+          ([4, 2], [4], 2, True),
+          ([4, 2], [2], 3, True),
+          ([4, 2], [2, 3], 1, False),
+          ([4, 4, 2], [3, 2], 1, True),
+          ([4, 4, 2], [3, 2], 4, True),
+          ([4, 4, 2], [3, 2], 5, False)
         ]
       let actual = canAccommodate tables reservations q
       return $ expected ~=? actual
