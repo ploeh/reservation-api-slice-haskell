@@ -30,37 +30,6 @@ import ReservationAPI
 import Servant
 import API
 
-newtype AnyReservation =
-  AnyReservation { getAnyReservation :: Reservation } deriving (Eq, Show)
-
-instance Arbitrary AnyReservation where
-  arbitrary =
-    AnyReservation <$>
-    liftM5 Reservation arbitrary arbitrary arbitrary arbitrary arbitrary
-
-newtype ValidReservation = ValidReservation Reservation deriving (Eq, Show)
-
-instance Arbitrary ValidReservation where
-  arbitrary = do
-    rid <- arbitrary `suchThat` (/= nil)
-    d <- (\dt -> addLocalTime (getPositive dt) now2019) <$> arbitrary
-    n <- arbitrary
-    e <- arbitrary
-    (Positive q) <- arbitrary
-    return $ ValidReservation $ Reservation rid d n e q
-
-
--- Create a reservation with a particular quantity, leaving all other values at
--- some useful default. This function is useful to create test cases for the
--- acceptance logic.
-reserve :: Int -> Reservation
-reserve =
-  Reservation
-    (fromWords 2982308526 3666889355 2898800936 1462034590) -- any arbitrary ID
-    (addLocalTime nominalDay now2019) -- One day in 'the future'
-    ""
-    ""
-
 reservationAPITests :: [Test]
 reservationAPITests =
   [
@@ -148,6 +117,36 @@ reservationAPITests =
       ]
     ]
   ]
+
+newtype AnyReservation =
+  AnyReservation { getAnyReservation :: Reservation } deriving (Eq, Show)
+
+instance Arbitrary AnyReservation where
+  arbitrary =
+    AnyReservation <$>
+    liftM5 Reservation arbitrary arbitrary arbitrary arbitrary arbitrary
+
+newtype ValidReservation = ValidReservation Reservation deriving (Eq, Show)
+
+instance Arbitrary ValidReservation where
+  arbitrary = do
+    rid <- arbitrary `suchThat` (/= nil)
+    d <- (\dt -> addLocalTime (getPositive dt) now2019) <$> arbitrary
+    n <- arbitrary
+    e <- arbitrary
+    (Positive q) <- arbitrary
+    return $ ValidReservation $ Reservation rid d n e q
+
+-- Create a reservation with a particular quantity, leaving all other values at
+-- some useful default. This function is useful to create test cases for the
+-- acceptance logic.
+reserve :: Int -> Reservation
+reserve =
+  Reservation
+    (fromWords 2982308526 3666889355 2898800936 1462034590) -- any arbitrary ID
+    (addLocalTime nominalDay now2019) -- One day in 'the future'
+    ""
+    ""
 
 -- Not in time 1.8.0.2
 addLocalTime :: NominalDiffTime -> LocalTime -> LocalTime
