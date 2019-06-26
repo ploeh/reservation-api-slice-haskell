@@ -51,7 +51,7 @@ reservationServer seatingDuration tables = getReservation :<|> postReservation
         Just r -> return r
         Nothing -> throwError err404
     postReservation r = do
-      e <- toFreeT $ tryAccept seatingDuration tables r
+      e <- toFreeT $ runExceptT $ tryAccept seatingDuration tables r
       case e of
         Right () -> return ()
         Left (ValidationError err) -> throwError $ err400 { errBody = err }

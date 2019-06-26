@@ -24,6 +24,7 @@ dependencies:
 - bytestring
 - uuid
 - time
+- transformers
 - mtl
 - free
 - aeson

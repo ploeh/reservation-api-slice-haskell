@@ -15,6 +15,8 @@ import Data.Time.LocalTime
 import Data.Functor.Sum
 import Data.Aeson
 import GHC.Generics
+import Control.Monad.Trans.Class
+import Control.Monad.Except
 import Control.Monad.Free
 import Servant
 
@@ -102,11 +104,11 @@ newtype Table = Table { tableSeats :: Int } deriving (Eq, Show, Read)
 tryAccept :: NominalDiffTime
           -> [Table]
           -> Reservation
-          -> ReservationsProgram (Either (APIError ByteString) ())
-tryAccept _ tables r = do
-  now <- currentTime
-  let _ = canAccommodate (tableSeats <$> tables) [] $ reservationQuantity r
-  traverse createReservation $ validateReservation now r
+          -> ExceptT (APIError ByteString) ReservationsProgram ()
+tryAccept _ _ r = do
+  now <- lift currentTime
+  vr <- liftEither $ validateReservation now r
+  lift $ createReservation vr
 
 modifyReservationFieldLabel :: String -> String
 modifyReservationFieldLabel =
