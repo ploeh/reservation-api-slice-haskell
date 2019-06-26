@@ -98,6 +98,18 @@ canAccommodate resources reservations q =
       fits reservation resource = reservation <= resource
       remainingResources = deleteFirstsBy fits resourceList reservationList
   in any (q <=) remainingResources
+
+canAccommodateReservation :: [Table]
+                          -> [Reservation]
+                          -> Reservation
+                          -> Either (APIError ByteString) Reservation
+canAccommodateReservation tables reservations r =
+  if canAccommodate
+      (tableSeats <$> tables)
+      (reservationQuantity <$> reservations)
+      (reservationQuantity r)
+    then Right r
+    else Left $ ExecutionError "No table available"
   
 newtype Table = Table { tableSeats :: Int } deriving (Eq, Show, Read)
 
@@ -105,10 +117,16 @@ tryAccept :: NominalDiffTime
           -> [Table]
           -> Reservation
           -> ExceptT (APIError ByteString) ReservationsProgram ()
-tryAccept _ _ r = do
+tryAccept seatingDuration tables r = do
   now <- lift currentTime
-  vr <- liftEither $ validateReservation now r
-  lift $ createReservation vr
+  _ <- liftEither $ validateReservation now r
+
+  let reservationStartsAt = reservationDate r
+  let reservationEndsAt = addLocalTime seatingDuration reservationStartsAt
+  reservations <- lift $ readReservations reservationStartsAt reservationEndsAt
+  _ <- liftEither $ canAccommodateReservation tables reservations r
+
+  lift $ createReservation r
 
 modifyReservationFieldLabel :: String -> String
 modifyReservationFieldLabel =

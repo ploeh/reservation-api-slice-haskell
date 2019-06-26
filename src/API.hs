@@ -55,7 +55,7 @@ reservationServer seatingDuration tables = getReservation :<|> postReservation
       case e of
         Right () -> return ()
         Left (ValidationError err) -> throwError $ err400 { errBody = err }
-        Left  (ExecutionError err) -> throwError $ err400 { errBody = err }
+        Left  (ExecutionError err) -> throwError $ err500 { errBody = err }
 
 server :: NominalDiffTime
        -> [Table]

@@ -14,6 +14,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
+import Data.Time.Clock
 import Data.Time.LocalTime
 import Data.Aeson (encode, decode)
 import Network.HTTP.Types (methodGet, methodPost)
@@ -109,7 +110,17 @@ reservationAPITests = [
         ]
       let actual = canAccommodate tables reservations q
       return $ expected ~=? actual
-    )
+    ) ++ [
+    testProperty "canAccommodateReservation returns correct result" $ \
+      (fmap getValidTable -> tables) (fmap getValidReservation -> rs) (ValidReservation r) -> do
+      let actual = canAccommodateReservation tables rs r
+
+      let expected = canAccommodate
+                      (tableSeats <$> tables)
+                      (reservationQuantity <$> rs)
+                      (reservationQuantity r)
+      expected === either (const False) (const True) actual
+    ]
   ,
   testGroup "Reservation JSON" $ 
     hUnitTestToTests (TestLabel "renders correctly" $ do
@@ -165,6 +176,15 @@ reservationAPITests = [
             r { reservationDate = addLocalTime (negate diffTime) now2019 }
       actual <- postJSON "/reservations" $ encode invalid
       assertStatus 400 actual
+    ,
+    testProperty "fails when reservation beyond table capacity is POSTed" $ withApp <$> \
+      (ValidReservation r, Positive i) -> do
+      let largestTableSize = maximum $ tableSeats <$> theTables
+      let invalid = r { reservationQuantity = i + largestTableSize }
+
+      actual <- postJSON "/reservations" $ encode invalid
+
+      assertStatus 500 actual
   ]]
 
 newtype AnyReservation =
@@ -184,8 +204,19 @@ instance Arbitrary ValidReservation where
     d <- (\dt -> addLocalTime (getPositive dt) now2019) <$> arbitrary
     n <- arbitrary
     e <- arbitrary
-    (Positive q) <- arbitrary
+    (QuantityWithinCapacity q) <- arbitrary
     return $ ValidReservation $ Reservation rid d n e q
+
+newtype QuantityWithinCapacity = QuantityWithinCapacity Int deriving (Eq, Show)
+
+instance Arbitrary QuantityWithinCapacity where
+  arbitrary =
+    QuantityWithinCapacity <$> choose (1, maximum (tableSeats <$> theTables))
+
+newtype ValidTable = ValidTable { getValidTable :: Table } deriving (Eq, Show)
+
+instance Arbitrary ValidTable where
+  arbitrary = (ValidTable . Table . getPositive) <$> arbitrary
 
 get :: BS.ByteString -> Session SResponse
 get url = request $ setPath defaultRequest { requestMethod = methodGet } url
@@ -228,10 +259,19 @@ runInFakeDBAndIn2019 ref = iterT go
   where go (InL rins) = runInFakeDB ref rins
         go (InR cins) = runIn2019 cins
 
+theSeatingDuration :: NominalDiffTime
+theSeatingDuration = 120 -- 2 hours
+
+theTables :: [Table]
+theTables = [Table 2, Table 4, Table 4, Table 2, Table 6]
+
 app :: IO Application
 app = do
   ref <- newIORef Map.empty
-  return $ serve api $ hoistServer api (runInFakeDBAndIn2019 ref) $ server 150 []
+  return $
+    serve api $
+    hoistServer api (runInFakeDBAndIn2019 ref) $
+    server theSeatingDuration theTables
 
 withApp :: Testable prop => Session prop -> Property
 withApp = idempotentIOProperty . (app >>=) . runSession
