@@ -196,8 +196,7 @@ reservationAPITests = [
               reservationId = rid,
               reservationQuantity = t,
               reservationDate = d }
-      let rids = take (length theTables) $ nub ids
-      let rs = zipWith3 reserve rids validReservations theTables
+      let rs = zipWith3 reserve (nub ids) validReservations theTables
 
       statuses <- traverse (postJSON "/reservations" . encode) rs
 
@@ -210,10 +209,7 @@ reservationAPITests = [
               reservationId = rid,
               reservationQuantity = t,
               reservationDate = reservationDate r }
-      let rids =
-            take (length theTables) $
-            filter (/= (NonNilUUID $ reservationId r)) $
-            nub ids
+      let rids = filter (/= (NonNilUUID $ reservationId r)) $ nub ids
       let rs = zipWith3 reserve rids validReservations theTables
       traverse_ (postJSON "/reservations" . encode) rs
 
