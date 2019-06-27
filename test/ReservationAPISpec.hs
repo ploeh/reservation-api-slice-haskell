@@ -228,7 +228,7 @@ reservationAPITests = [
       let rs = zipWith3 reserve rids validReservations theTables
       traverse_ (postJSON "/reservations" . encode) rs
 
-      let aLittleLater = addLocalTime (theSeatingDuration / 2) $ d
+      let aLittleLater = addLocalTime (theSeatingDuration / 2) d
       actual <- postJSON "/reservations" $
                 encode $
                 r { reservationQuantity = 1, reservationDate = aLittleLater }
