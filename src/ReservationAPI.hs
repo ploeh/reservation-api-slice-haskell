@@ -122,8 +122,12 @@ tryAccept seatingDuration tables r = do
   _ <- liftEither $ validateReservation now r
 
   let reservationStartsAt = reservationDate r
+  let earlierReservationThatOverlapsStartsAt =
+        addLocalTime (negate seatingDuration) reservationStartsAt
   let reservationEndsAt = addLocalTime seatingDuration reservationStartsAt
-  reservations <- lift $ readReservations reservationStartsAt reservationEndsAt
+  reservations <-
+    lift $
+    readReservations earlierReservationThatOverlapsStartsAt reservationEndsAt
   _ <- liftEither $ canAccommodateReservation tables reservations r
 
   lift $ createReservation r

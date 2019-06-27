@@ -220,6 +220,24 @@ reservationAPITests = [
       actual <- postJSON "/reservations" $ encode $ r { reservationQuantity = 1 }
 
       assertStatus 500 actual
+    ,
+    testProperty "fails when restaurant is fully booked, but reservation is for a little later" $ withApp <$> \
+      (FutureTime d, InfiniteList ids _, InfiniteList validReservations _, ValidReservation r) -> do
+      let reserve (NonNilUUID rid) (ValidReservation res) (Table t) =
+            res {
+              reservationId = rid,
+              reservationQuantity = t,
+              reservationDate = d }
+      let rids = filter (/= (NonNilUUID $ reservationId r)) $ nub ids
+      let rs = zipWith3 reserve rids validReservations theTables
+      traverse_ (postJSON "/reservations" . encode) rs
+
+      let aLittleLater = addLocalTime (theSeatingDuration / 2) $ d
+      actual <- postJSON "/reservations" $
+                encode $
+                r { reservationQuantity = 1, reservationDate = aLittleLater }
+
+      assertStatus 500 actual
   ]]
 
 newtype AnyReservation =
