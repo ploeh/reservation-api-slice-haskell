@@ -6,6 +6,8 @@ module ReservationAPISpec where
 import Control.Monad
 import Control.Monad.Trans.Free
 import Control.Monad.IO.Class
+import Data.List
+import Data.Foldable
 import Data.Functor.Sum
 import Data.UUID
 import Data.IORef
@@ -18,6 +20,7 @@ import Data.Time.Clock
 import Data.Time.LocalTime
 import Data.Aeson (encode, decode)
 import Network.HTTP.Types (methodGet, methodPost)
+import Network.HTTP.Types.Status
 import Network.Wai
 import Network.Wai.Test
 import Test.Framework (Test, testGroup)
@@ -185,6 +188,38 @@ reservationAPITests = [
       actual <- postJSON "/reservations" $ encode invalid
 
       assertStatus 500 actual
+    ,
+    testProperty "succeeds fully booking the restaurant" $ withApp <$> \
+      (FutureTime d, InfiniteList ids _, InfiniteList validReservations _) -> do
+      let reserve (NonNilUUID rid) (ValidReservation res) (Table t) =
+            res {
+              reservationId = rid,
+              reservationQuantity = t,
+              reservationDate = d }
+      let rids = take (length theTables) $ nub ids
+      let rs = zipWith3 reserve rids validReservations theTables
+
+      statuses <- traverse (postJSON "/reservations" . encode) rs
+
+      return $ all (statusIsSuccessful . simpleStatus) statuses
+    ,
+    testProperty "fails when restaurant is fully booked" $ withApp <$> \
+      (InfiniteList ids _, InfiniteList validReservations _, ValidReservation r) -> do
+      let reserve (NonNilUUID rid) (ValidReservation res) (Table t) =
+            res {
+              reservationId = rid,
+              reservationQuantity = t,
+              reservationDate = reservationDate r }
+      let rids =
+            take (length theTables) $
+            filter (/= (NonNilUUID $ reservationId r)) $
+            nub ids
+      let rs = zipWith3 reserve rids validReservations theTables
+      traverse_ (postJSON "/reservations" . encode) rs
+
+      actual <- postJSON "/reservations" $ encode $ r { reservationQuantity = 1 }
+
+      assertStatus 500 actual
   ]]
 
 newtype AnyReservation =
@@ -200,12 +235,24 @@ newtype ValidReservation =
 
 instance Arbitrary ValidReservation where
   arbitrary = do
-    rid <- arbitrary `suchThat` (/= nil)
-    d <- (\dt -> addLocalTime (getPositive dt) now2019) <$> arbitrary
+    (NonNilUUID rid) <- arbitrary
+    (FutureTime d) <- arbitrary
     n <- arbitrary
     e <- arbitrary
     (QuantityWithinCapacity q) <- arbitrary
     return $ ValidReservation $ Reservation rid d n e q
+
+newtype NonNilUUID = NonNilUUID { getNonNilUUID :: UUID } deriving (Eq, Show)
+
+instance Arbitrary NonNilUUID where
+  arbitrary = NonNilUUID <$> arbitrary `suchThat` (/= nil)
+
+newtype FutureTime =
+  FutureTime { getFutureTime :: LocalTime } deriving (Eq, Show)
+
+instance Arbitrary FutureTime where
+  arbitrary =
+    (\dt -> FutureTime $ addLocalTime (getPositive dt) now2019) <$> arbitrary
 
 newtype QuantityWithinCapacity = QuantityWithinCapacity Int deriving (Eq, Show)
 
@@ -233,13 +280,21 @@ type DB = Map UUID Reservation
 createInFake :: IORef DB -> Reservation -> IO ()
 createInFake ref r = modifyIORef' ref (Map.insert (reservationId r) r)
 
-readFromFake :: IORef DB -> UUID -> IO (Maybe Reservation)
-readFromFake ref rid = Map.lookup rid <$> readIORef ref
+readOneFromFake :: IORef DB -> UUID -> IO (Maybe Reservation)
+readOneFromFake ref rid = Map.lookup rid <$> readIORef ref
+
+readManyFromFake :: IORef DB -> LocalTime -> LocalTime -> IO [Reservation]
+readManyFromFake ref lo hi = do
+  db <- readIORef ref
+  let allReservations = Map.elems db
+  let inRange (Reservation _ d _ _ _) = lo <= d && d <= hi
+  return $ filter inRange allReservations
 
 runInFakeDB :: MonadIO m => IORef DB -> ReservationsInstruction (m a) -> m a
 runInFakeDB ref (ReadReservation rid next) =
-  liftIO (readFromFake ref rid) >>= next
-runInFakeDB   _ (ReadReservations _ _ next) = next []
+  liftIO (readOneFromFake ref rid) >>= next
+runInFakeDB ref (ReadReservations lo hi next) =
+  liftIO (readManyFromFake ref lo hi) >>= next
 runInFakeDB ref (CreateReservation r next) =
   liftIO (createInFake ref r) >> next
 
@@ -260,7 +315,7 @@ runInFakeDBAndIn2019 ref = iterT go
         go (InR cins) = runIn2019 cins
 
 theSeatingDuration :: NominalDiffTime
-theSeatingDuration = 120 -- 2 hours
+theSeatingDuration = 2 * 60 * 60 -- 2 hours
 
 theTables :: [Table]
 theTables = [Table 2, Table 4, Table 4, Table 2, Table 6]

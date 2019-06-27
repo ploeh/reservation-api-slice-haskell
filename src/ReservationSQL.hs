@@ -9,6 +9,7 @@ import qualified Data.ByteString.Lazy as BS
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.UUID
+import Data.Time.LocalTime
 import Database.ODBC.SQLServer
 import ReservationAPI
 
@@ -69,6 +70,17 @@ readReservation connStr rid =
   in withConnection connStr $ \conn -> do
       rs <- query conn sql
       return $ unDbReservation <$> listToMaybe rs
+
+readReservations :: Text -> LocalTime -> LocalTime -> IO [Reservation]
+readReservations connStr lo hi =
+  let lo' = toSql $ Datetime2 lo
+      hi' = toSql $ Datetime2 hi
+      sql =
+        "SELECT [Guid], [Date], [Name], [Email], [Quantity]\
+        \FROM [dbo].[Reservations]\
+        \WHERE " <> lo' <> " <= [Date]\
+        \AND [Date] <= " <> hi'
+  in withConnection connStr $ \conn -> fmap unDbReservation <$> query conn sql
 
 withConnection :: Text -> (Connection -> IO a) -> IO a
 withConnection connStr = bracket (connect connStr) close
