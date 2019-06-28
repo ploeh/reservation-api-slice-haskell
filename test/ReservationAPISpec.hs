@@ -36,25 +36,6 @@ import API
 
 reservationAPITests :: [Test]
 reservationAPITests = [
-  testGroup "Remove non-overlapping reservations" [
-    testProperty "returns reservation if already reserved" $ \
-    (Positive sd) (AnyReservation r) -> do
-      let actual = removeNonOverlappingReservations sd [r] r
-      [r] === actual
-    ,
-    testProperty "returns no reservations that start a seating duration after the reservation" $ \
-      (Positive sd) (fmap getValidReservation -> rs) (ValidReservation r) -> do
-      let actual = removeNonOverlappingReservations sd rs r
-      False ===
-        any (\x -> addLocalTime sd (reservationDate r) < reservationDate x) actual
-    ,
-    testProperty "returns no reservations that end a seating duration before the reservation" $ \
-      (Positive sd) (fmap getValidReservation -> rs) (ValidReservation r) -> do
-      let actual = removeNonOverlappingReservations sd rs r
-      False ===
-        any (\x -> addLocalTime sd (reservationDate x) < reservationDate r) actual
-  ]
-  ,
   testGroup "Accommodate" $ [
     testProperty "rejects any reservation when restaurant has no tables" $ \
       (tables :: [Int]) q -> do

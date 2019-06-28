@@ -75,17 +75,6 @@ validateReservation now (Reservation rid d n e q) = do
           (ValidationError "Quantity must be a positive integer") q
   return $ Reservation vid vd n e vq
 
-removeNonOverlappingReservations :: NominalDiffTime
-                                 -> [Reservation]
-                                 ->  Reservation
-                                 -> [Reservation]
-removeNonOverlappingReservations seatingDuration reservations r =
-  let reservationStartsAt = reservationDate r
-      reservationEndsAt = addLocalTime seatingDuration reservationStartsAt
-      overlaps x = let t = reservationDate x
-                   in reservationStartsAt <= t && t < reservationEndsAt
-  in filter overlaps reservations
-
 -- Not in time 1.8.0.2
 addLocalTime :: NominalDiffTime -> LocalTime -> LocalTime
 addLocalTime x = utcToLocalTime utc . addUTCTime x . localTimeToUTC utc
