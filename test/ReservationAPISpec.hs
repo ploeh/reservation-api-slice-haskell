@@ -22,7 +22,7 @@ import Data.Aeson (encode, decode)
 import Network.HTTP.Types
 import Network.Wai
 import Network.Wai.Test
-import Test.Framework (Test, testGroup)
+import Test.Framework (Test, TestName, testGroup)
 import Test.Framework.Providers.QuickCheck2 (testProperty)
 import Test.Framework.Providers.HUnit
 import Test.HUnit.Base hiding (Test, Testable)
@@ -125,42 +125,41 @@ reservationAPITests = [
   ]
   ,
   testGroup "/reservations/" [
-    testProperty "responds with 404 when no reservation exists" $ withApp <$> \
-      rid -> do
+    appProperty "responds with 404 when no reservation exists" $ \rid -> do
       actual <- get $ "/reservations/" <> toASCIIBytes rid
       assertStatus 404 actual
     ,
-    testProperty "responds with 200 after reservation is added" $ withApp <$> \
+    appProperty "responds with 200 after reservation is added" $ \
       (ValidReservation r) -> do
       _ <- postJSON "/reservations" $ encode r
       actual <- get $ "/reservations/" <> toASCIIBytes (reservationId r)
       assertStatus 200 actual
     ,
-    testProperty "succeeds when valid reservation is POSTed" $ withApp <$> \
+    appProperty "succeeds when valid reservation is POSTed" $ \
       (ValidReservation r) -> do
       actual <- postJSON "/reservations" $ encode r
       assertStatus 200 actual
     ,
-    testProperty "fails when reservation is POSTed with the nil UUID" $ withApp <$> \
+    appProperty "fails when reservation is POSTed with the nil UUID" $ \
       (ValidReservation r) -> do
       let invalid = r { reservationId = nil }
       actual <- postJSON "/reservations" $ encode invalid
       assertStatus 400 actual
     ,
-    testProperty "fails when reservation is POSTed with invalid quantity" $ withApp <$> \
+    appProperty "fails when reservation is POSTed with invalid quantity" $ \
       (ValidReservation r, NonNegative q) -> do
       let invalid = r { reservationQuantity = negate q }
       actual <- postJSON "/reservations" $ encode invalid
       assertStatus 400 actual
     ,
-    testProperty "fails when past reservation is POSTed" $ withApp <$> \
+    appProperty "fails when past reservation is POSTed" $ \
       (ValidReservation r, Positive diffTime) -> do
       let invalid =
             r { reservationDate = addLocalTime (negate diffTime) now2019 }
       actual <- postJSON "/reservations" $ encode invalid
       assertStatus 400 actual
     ,
-    testProperty "fails when reservation beyond table capacity is POSTed" $ withApp <$> \
+    appProperty "fails when reservation beyond table capacity is POSTed" $ \
       (ValidReservation r, Positive i) -> do
       let largestTableSize = maximum $ tableSeats <$> theTables
       let invalid = r { reservationQuantity = i + largestTableSize }
@@ -169,7 +168,7 @@ reservationAPITests = [
 
       assertStatus 500 actual
     ,
-    testProperty "succeeds fully booking the restaurant" $ withApp <$> \
+    appProperty "succeeds fully booking the restaurant" $ \
       (FutureTime d, InfiniteList ids _, InfiniteList validReservations _) -> do
       let reserve (NonNilUUID rid) (ValidReservation res) (Table t) =
             res {
@@ -182,7 +181,7 @@ reservationAPITests = [
 
       return $ all (statusIsSuccessful . simpleStatus) statuses
     ,
-    testProperty "fails when restaurant is fully booked" $ withApp <$> \
+    appProperty "fails when restaurant is fully booked" $ \
       (InfiniteList ids _, InfiniteList validReservations _, ValidReservation r) -> do
       let reserve (NonNilUUID rid) (ValidReservation res) (Table t) =
             res {
@@ -197,7 +196,7 @@ reservationAPITests = [
 
       assertStatus 500 actual
     ,
-    testProperty "fails when restaurant is fully booked, but reservation is for a little later" $ withApp <$> \
+    appProperty "fails when restaurant is fully booked, but reservation is for a little later" $ \
       (FutureTime d, InfiniteList ids _, InfiniteList validReservations _, ValidReservation r) -> do
       let reserve (NonNilUUID rid) (ValidReservation res) (Table t) =
             res {
@@ -325,5 +324,7 @@ app = do
 runSessionWithApp :: Session a -> IO a
 runSessionWithApp s = app >>= runSession s
 
-withApp :: Testable prop => Session prop -> Property
-withApp = idempotentIOProperty . runSessionWithApp
+appProperty :: (Functor f, Testable prop, Testable (f Property))
+            => TestName -> f (Session prop) -> Test
+appProperty name =
+  testProperty name . fmap (idempotentIOProperty . runSessionWithApp)
