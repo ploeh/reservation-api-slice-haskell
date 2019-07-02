@@ -327,4 +327,4 @@ runSessionWithApp s = app >>= runSession s
 appProperty :: (Functor f, Testable prop, Testable (f Property))
             => TestName -> f (Session prop) -> Test
 appProperty name =
-  testProperty name . fmap (idempotentIOProperty . runSessionWithApp)
+  testProperty name . fmap (ioProperty . runSessionWithApp)
