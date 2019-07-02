@@ -322,5 +322,8 @@ app = do
     hoistServer api (runInFakeDBAndIn2019 ref) $
     server theSeatingDuration theTables
 
+runSessionWithApp :: Session a -> IO a
+runSessionWithApp s = app >>= runSession s
+
 withApp :: Testable prop => Session prop -> Property
-withApp = idempotentIOProperty . (app >>=) . runSession
+withApp = idempotentIOProperty . runSessionWithApp
