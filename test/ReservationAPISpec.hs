@@ -19,8 +19,7 @@ import Data.Map.Strict (Map)
 import Data.Time.Clock
 import Data.Time.LocalTime
 import Data.Aeson (encode, decode)
-import Network.HTTP.Types (methodGet, methodPost)
-import Network.HTTP.Types.Status
+import Network.HTTP.Types
 import Network.Wai
 import Network.Wai.Test
 import Test.Framework (Test, testGroup)
@@ -268,7 +267,7 @@ postJSON url json = srequest $ SRequest req json
   where
     req = setPath defaultRequest
             { requestMethod = methodPost
-            , requestHeaders = [("Content-Type", "application/json")]} url
+            , requestHeaders = [(hContentType, "application/json")]} url
 
 type DB = Map UUID Reservation
 
