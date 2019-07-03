@@ -9,6 +9,9 @@ copyright:           "2019 Mark Seemann"
 extra-source-files:
 - README.md
 
+data-files:
+- app/Restaurant.config
+
 # Metadata used when publishing your package
 # synopsis:            Short description of your package
 # category:            Web

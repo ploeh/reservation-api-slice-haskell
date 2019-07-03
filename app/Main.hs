@@ -1,11 +1,14 @@
 module Main where
 
 import System.Environment
+import Data.Bifunctor
+import Data.Time.Clock
 import Data.Text (pack)
 import Text.Read
 import Network.Wai.Handler.Warp
 import Servant
 import ReservationAPI
+import Paths_RestaurantReservation
 import API
 
 main :: IO ()
@@ -25,7 +28,19 @@ runApp connStr port = do
   putStrLn "Press Ctrl + C to stop the server."
   let hoistSQL =
         hoistServer api $ runInSQLServerAndOnSystemClock $ pack connStr
-  -- These two values should be pulled from a configuration file or similar
-  let seatingDuration = 2 * 60 * 60 + 30 * 60 -- 2½ hours
-  let tables = [Table 2, Table 4, Table 6, Table 8]
+  (seatingDuration, tables) <- readConfig
   run port $ serve api $ hoistSQL $ server seatingDuration tables
+
+-- To keep the example simple, the configuration file is simply a tuple Haskell
+-- expression, interpreted with `read`. There's no `Read` instance for
+-- NominalDiffTime, so the file stores the seating duration as seconds.
+-- This design limits the expressivity of the configuration file itself. For
+-- example, you can't put comments in the file.
+-- A more comprehensive configuration system might introduce something more
+-- elaborate, such as Dhall. For this example, however, I think Dhall would be
+-- overkill.
+readConfig :: IO (NominalDiffTime, [Table])
+readConfig = do
+  fileName <- getDataFileName "app/Restaurant.config"
+  config <- readFile fileName
+  return $ first fromInteger $ read config
