@@ -19,14 +19,6 @@ api = Proxy
 
 type API = "reservations" :> ReservationAPI
 
-runInSQLServer :: MonadIO m => Text -> ReservationsInstruction (m a) -> m a
-runInSQLServer connStr (ReadReservation rid next) =
-  liftIO (DB.readReservation connStr rid) >>= next
-runInSQLServer connStr (ReadReservations lo hi next) =
-  liftIO (DB.readReservations connStr lo hi) >>= next
-runInSQLServer connStr (CreateReservation r next) =
-  liftIO (DB.insertReservation connStr r) >> next
-
 runOnSystemClock :: MonadIO m => ClockInstruction (m a) -> m a
 runOnSystemClock (CurrentTime next) =
   liftIO (zonedTimeToLocalTime <$> getZonedTime) >>= next
@@ -36,7 +28,7 @@ runInSQLServerAndOnSystemClock :: MonadIO m
                                -> ReservationsProgramT m a
                                -> m a
 runInSQLServerAndOnSystemClock connStr = iterT go
-  where go (InL rins) = runInSQLServer connStr rins
+  where go (InL rins) = DB.runInSQLServer connStr rins
         go (InR cins) = runOnSystemClock cins
 
 type ReservationsProgramT = FreeT (Sum ReservationsInstruction ClockInstruction)

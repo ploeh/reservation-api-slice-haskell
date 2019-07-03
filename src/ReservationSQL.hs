@@ -2,6 +2,7 @@
 module ReservationSQL where
 
 import Control.Exception.Base (bracket)
+import Control.Monad.Except
 import Data.Maybe
 import Data.Coerce
 import Data.ByteString.Lazy (ByteString)
@@ -11,7 +12,7 @@ import qualified Data.Text as T
 import Data.UUID
 import Data.Time.LocalTime
 import Database.ODBC.SQLServer
-import ReservationAPI
+import ReservationAPI (Reservation(..), ReservationsInstruction(..))
 
 toMixedEndianByteString :: UUID -> ByteString
 toMixedEndianByteString uuid =
@@ -84,3 +85,11 @@ readReservations connStr lo hi =
 
 withConnection :: Text -> (Connection -> IO a) -> IO a
 withConnection connStr = bracket (connect connStr) close
+
+runInSQLServer :: MonadIO m => Text -> ReservationsInstruction (m a) -> m a
+runInSQLServer connStr (ReadReservation rid next) =
+  liftIO (readReservation connStr rid) >>= next
+runInSQLServer connStr (ReadReservations lo hi next) =
+  liftIO (readReservations connStr lo hi) >>= next
+runInSQLServer connStr (CreateReservation r next) =
+  liftIO (insertReservation connStr r) >> next
