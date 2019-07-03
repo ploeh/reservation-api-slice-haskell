@@ -8,28 +8,13 @@ import Control.Monad.Free (toFreeT)
 import Control.Monad.Trans.Free
 import Data.Functor.Sum
 import Data.Time.Clock
-import Data.Time.LocalTime
-import Data.Text
 import Servant
 import ReservationAPI
-import qualified ReservationSQL as DB
 
 api :: Proxy API
 api = Proxy
 
 type API = "reservations" :> ReservationAPI
-
-runOnSystemClock :: MonadIO m => ClockInstruction (m a) -> m a
-runOnSystemClock (CurrentTime next) =
-  liftIO (zonedTimeToLocalTime <$> getZonedTime) >>= next
-
-runInSQLServerAndOnSystemClock :: MonadIO m
-                               => Text
-                               -> ReservationsProgramT m a
-                               -> m a
-runInSQLServerAndOnSystemClock connStr = iterT go
-  where go (InL rins) = DB.runInSQLServer connStr rins
-        go (InR cins) = runOnSystemClock cins
 
 type ReservationsProgramT = FreeT (Sum ReservationsInstruction ClockInstruction)
 

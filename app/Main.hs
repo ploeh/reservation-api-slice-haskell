@@ -2,13 +2,18 @@ module Main where
 
 import System.Environment
 import Data.Bifunctor
+import Data.Functor.Sum
 import Data.Time.Clock
-import Data.Text (pack)
+import Data.Time.LocalTime
+import Data.Text (Text, pack)
+import Control.Monad.Except
+import Control.Monad.Trans.Free
 import Text.Read
 import Network.Wai.Handler.Warp
 import Servant
 import ReservationAPI
 import Paths_RestaurantReservation
+import qualified ReservationSQL as DB
 import API
 
 main :: IO ()
@@ -30,6 +35,18 @@ runApp connStr port = do
         hoistServer api $ runInSQLServerAndOnSystemClock $ pack connStr
   (seatingDuration, tables) <- readConfig
   run port $ serve api $ hoistSQL $ server seatingDuration tables
+
+runOnSystemClock :: MonadIO m => ClockInstruction (m a) -> m a
+runOnSystemClock (CurrentTime next) =
+  liftIO (zonedTimeToLocalTime <$> getZonedTime) >>= next
+
+runInSQLServerAndOnSystemClock :: MonadIO m
+                               => Text
+                               -> ReservationsProgramT m a
+                               -> m a
+runInSQLServerAndOnSystemClock connStr = iterT go
+  where go (InL rins) = DB.runInSQLServer connStr rins
+        go (InR cins) = runOnSystemClock cins
 
 -- To keep the example simple, the configuration file is simply a tuple Haskell
 -- expression, interpreted with `read`. There's no `Read` instance for
