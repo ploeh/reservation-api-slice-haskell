@@ -46,7 +46,7 @@ logClock :: (MonadIO m)
          -> ClockInstruction (m a) -> m a
 logClock inner (CurrentTime next) = do
   output <- inner $ CurrentTime return
-  liftIO $ logEntry "CurrentTime" () output
+  liftIO $ writeLogEntry "CurrentTime" () output
   next output
 
 logSQL :: MonadIO m
@@ -54,15 +54,15 @@ logSQL :: MonadIO m
        -> ReservationsInstruction (m a) -> m a
 logSQL inner (ReadReservation rid next) = do
   output <- inner $ ReadReservation rid return
-  liftIO $ logEntry "ReadReservation" rid output
+  liftIO $ writeLogEntry "ReadReservation" rid output
   next output
 logSQL inner (ReadReservations lo hi next) = do
   output <- inner $ ReadReservations lo hi return
-  liftIO $ logEntry "ReadReservations" (lo, hi) output
+  liftIO $ writeLogEntry "ReadReservations" (lo, hi) output
   next output
 logSQL inner (CreateReservation r next) = do
   output <- inner $ CreateReservation r (return ())
-  liftIO $ logEntry "CreateReservation" r output
+  liftIO $ writeLogEntry "CreateReservation" r output
   next
 
 runInSQLServerAndOnSystemClock :: (MonadIO m)
@@ -96,7 +96,7 @@ data LogEntry a b = LogEntry {
 
 -- The seemingly redundant Read constraints are to ensure that everythings
 -- that's logged can be read back so that a simulation can be run.
-logEntry :: (Show a, Read a, Show b, Read b) => String -> a -> b -> IO ()
-logEntry operation input output = do
+writeLogEntry :: (Show a, Read a, Show b, Read b) => String -> a -> b -> IO ()
+writeLogEntry operation input output = do
   t <- getCurrentTime
-  print $ LogEntry t operation input output
+  print $ LogEntry t operation (show input) (show output)
