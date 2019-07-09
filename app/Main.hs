@@ -94,6 +94,12 @@ data LogEntry a b = LogEntry {
   , logOutput :: b }
   deriving (Eq, Show, Read)
 
+instance Bifunctor LogEntry where
+  bimap f g (LogEntry t o inp out) = LogEntry t o (f inp) (g out)
+
+instance Functor (LogEntry a) where
+  fmap = bimap id
+
 -- The seemingly redundant Read constraints are to ensure that everythings
 -- that's logged can be read back so that a simulation can be run.
 writeLogEntry :: (Show a, Read a, Show b, Read b) => String -> a -> b -> IO ()
