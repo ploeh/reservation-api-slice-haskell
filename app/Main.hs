@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes #-}
 module Main where
 
 import System.Environment
@@ -8,7 +9,7 @@ import Data.Time.LocalTime
 import Data.Text (Text, pack)
 import Control.Monad.Except
 import Control.Monad.Trans.Free
-import Text.Read
+import Text.Read (readMaybe)
 import Network.Wai.Handler.Warp
 import Servant
 import ReservationAPI
@@ -40,13 +41,37 @@ runOnSystemClock :: MonadIO m => ClockInstruction (m a) -> m a
 runOnSystemClock (CurrentTime next) =
   liftIO (zonedTimeToLocalTime <$> getZonedTime) >>= next
 
-runInSQLServerAndOnSystemClock :: MonadIO m
+logClock :: (MonadIO m)
+         => (forall x. ClockInstruction (m x) -> m x)
+         -> ClockInstruction (m a) -> m a
+logClock inner (CurrentTime next) = do
+  output <- inner $ CurrentTime return
+  liftIO $ logEntry "CurrentTime" () output
+  next output
+
+logSQL :: MonadIO m
+       => (forall x. ReservationsInstruction (m x) -> m x)
+       -> ReservationsInstruction (m a) -> m a
+logSQL inner (ReadReservation rid next) = do
+  output <- inner $ ReadReservation rid return
+  liftIO $ logEntry "ReadReservation" rid output
+  next output
+logSQL inner (ReadReservations lo hi next) = do
+  output <- inner $ ReadReservations lo hi return
+  liftIO $ logEntry "ReadReservations" (lo, hi) output
+  next output
+logSQL inner (CreateReservation r next) = do
+  output <- inner $ CreateReservation r (return ())
+  liftIO $ logEntry "CreateReservation" r output
+  next
+
+runInSQLServerAndOnSystemClock :: (MonadIO m)
                                => Text
                                -> ReservationsProgramT m a
                                -> m a
 runInSQLServerAndOnSystemClock connStr = iterT go
-  where go (InL rins) = DB.runInSQLServer connStr rins
-        go (InR cins) = runOnSystemClock cins
+  where go (InL rins) = logSQL (DB.runInSQLServer connStr) rins
+        go (InR cins) = logClock runOnSystemClock cins
 
 -- To keep the example simple, the configuration file is simply a tuple Haskell
 -- expression, interpreted with `read`. There's no `Read` instance for
@@ -61,3 +86,17 @@ readConfig = do
   fileName <- getDataFileName "app/Restaurant.config"
   config <- readFile fileName
   return $ first fromInteger $ read config
+
+data LogEntry a b = LogEntry {
+    logTime :: UTCTime
+  , logOperation :: String
+  , logInput :: a
+  , logOutput :: b }
+  deriving (Eq, Show, Read)
+
+-- The seemingly redundant Read constraints are to ensure that everythings
+-- that's logged can be read back so that a simulation can be run.
+logEntry :: (Show a, Read a, Show b, Read b) => String -> a -> b -> IO ()
+logEntry operation input output = do
+  t <- getCurrentTime
+  print $ LogEntry t operation input output
