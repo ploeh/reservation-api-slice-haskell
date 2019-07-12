@@ -50,18 +50,18 @@ logClock inner (CurrentTime next) = do
   liftIO $ writeLogEntry "CurrentTime" () output
   next output
 
-logSQL :: MonadIO m
-       => (forall x. ReservationsInstruction (m x) -> m x)
-       -> ReservationsInstruction (m a) -> m a
-logSQL inner (ReadReservation rid next) = do
+logReservations :: MonadIO m
+                => (forall x. ReservationsInstruction (m x) -> m x)
+                -> ReservationsInstruction (m a) -> m a
+logReservations inner (ReadReservation rid next) = do
   output <- inner $ ReadReservation rid return
   liftIO $ writeLogEntry "ReadReservation" rid output
   next output
-logSQL inner (ReadReservations lo hi next) = do
+logReservations inner (ReadReservations lo hi next) = do
   output <- inner $ ReadReservations lo hi return
   liftIO $ writeLogEntry "ReadReservations" (lo, hi) output
   next output
-logSQL inner (CreateReservation r next) = do
+logReservations inner (CreateReservation r next) = do
   output <- inner $ CreateReservation r (return ())
   liftIO $ writeLogEntry "CreateReservation" r output
   next
@@ -71,7 +71,7 @@ runInSQLServerAndOnSystemClock :: (MonadIO m)
                                -> ReservationsProgramT m a
                                -> m a
 runInSQLServerAndOnSystemClock connStr = iterT go
-  where go (InL rins) = logSQL (DB.runInSQLServer connStr) rins
+  where go (InL rins) = logReservations (DB.runInSQLServer connStr) rins
         go (InR cins) = logClock runOnSystemClock cins
 
 -- To keep the example simple, the configuration file is simply a tuple Haskell
