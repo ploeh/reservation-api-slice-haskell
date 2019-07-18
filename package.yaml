@@ -27,6 +27,7 @@ dependencies:
 - bytestring
 - uuid
 - time
+- containers
 - transformers
 - mtl
 - free
