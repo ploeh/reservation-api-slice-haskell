@@ -4,7 +4,6 @@ import Control.Monad.Except
 import Control.Monad.Free
 import Control.Monad.State.Strict (State)
 import qualified Control.Monad.State.Strict as State
-import Data.Bifunctor
 import Data.Functor.Sum
 import Data.Map.Strict (Map, (!))
 import qualified Data.Map.Strict as Map
@@ -20,12 +19,6 @@ data LogEntry a b = LogEntry {
   , logInput :: a
   , logOutput :: b }
   deriving (Eq, Show, Read)
-
-instance Bifunctor LogEntry where
-  bimap f g (LogEntry t o inp out) = LogEntry t o (f inp) (g out)
-
-instance Functor (LogEntry a) where
-  fmap = bimap id
 
 -- The seemingly redundant Read constraints are to ensure that everythings
 -- that's logged can be read back so that a simulation can be run.
