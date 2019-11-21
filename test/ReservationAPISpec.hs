@@ -328,18 +328,17 @@ createInFake ref r = modifyIORef' ref (Map.insert (reservationId r) r)
 readOneFromFake :: IORef DB -> UUID -> IO (Maybe Reservation)
 readOneFromFake ref rid = Map.lookup rid <$> readIORef ref
 
-readManyFromFake :: IORef DB -> LocalTime -> LocalTime -> IO [Reservation]
-readManyFromFake ref lo hi = do
+readManyFromFake :: IORef DB -> LocalTime -> IO [Reservation]
+readManyFromFake ref (LocalTime d _) = do
   db <- readIORef ref
   let allReservations = Map.elems db
-  let inRange (Reservation _ d _ _ _) = lo <= d && d <= hi
-  return $ filter inRange allReservations
+  return $ filter ((d ==) . localDay . reservationDate) allReservations
 
 runInFakeDB :: MonadIO m => IORef DB -> ReservationsInstruction (m a) -> m a
 runInFakeDB ref (ReadReservation rid next) =
   liftIO (readOneFromFake ref rid) >>= next
-runInFakeDB ref (ReadReservations lo hi next) =
-  liftIO (readManyFromFake ref lo hi) >>= next
+runInFakeDB ref (ReadReservations t next) =
+  liftIO (readManyFromFake ref t) >>= next
 runInFakeDB ref (CreateReservation r next) =
   liftIO (createInFake ref r) >> next
 

@@ -72,15 +72,12 @@ readReservation connStr rid =
       rs <- query conn sql
       return $ unDbReservation <$> listToMaybe rs
 
-readReservations :: Text -> LocalTime -> LocalTime -> IO [Reservation]
-readReservations connStr lo hi =
-  let lo' = toSql $ Datetime2 lo
-      hi' = toSql $ Datetime2 hi
-      sql =
+readReservations :: Text -> LocalTime -> IO [Reservation]
+readReservations connStr (LocalTime d _) =
+  let sql =
         "SELECT [Guid], [Date], [Name], [Email], [Quantity]\
         \FROM [dbo].[Reservations]\
-        \WHERE " <> lo' <> " <= [Date]\
-        \AND [Date] <= " <> hi'
+        \WHERE CONVERT(DATE, [Date]) = " <> toSql d
   in withConnection connStr $ \conn -> fmap unDbReservation <$> query conn sql
 
 withConnection :: Text -> (Connection -> IO a) -> IO a
@@ -89,7 +86,7 @@ withConnection connStr = bracket (connect connStr) close
 runInSQLServer :: MonadIO m => Text -> ReservationsInstruction (m a) -> m a
 runInSQLServer connStr (ReadReservation rid next) =
   liftIO (readReservation connStr rid) >>= next
-runInSQLServer connStr (ReadReservations lo hi next) =
-  liftIO (readReservations connStr lo hi) >>= next
+runInSQLServer connStr (ReadReservations t next) =
+  liftIO (readReservations connStr t) >>= next
 runInSQLServer connStr (CreateReservation r next) =
   liftIO (insertReservation connStr r) >> next

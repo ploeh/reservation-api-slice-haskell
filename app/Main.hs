@@ -57,9 +57,9 @@ logReservations inner (ReadReservation rid next) = do
   output <- inner $ ReadReservation rid return
   liftIO $ writeLogEntry "ReadReservation" rid output
   next output
-logReservations inner (ReadReservations lo hi next) = do
-  output <- inner $ ReadReservations lo hi return
-  liftIO $ writeLogEntry "ReadReservations" (lo, hi) output
+logReservations inner (ReadReservations t next) = do
+  output <- inner $ ReadReservations t return
+  liftIO $ writeLogEntry "ReadReservations" t output
   next output
 logReservations inner (CreateReservation r next) = do
   output <- inner $ CreateReservation r (return ())

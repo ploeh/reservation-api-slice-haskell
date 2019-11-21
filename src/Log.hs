@@ -37,7 +37,7 @@ readLogEntry name s = do
 readReadReservationLogEntry :: String -> Maybe (LogEntry UUID (Maybe Reservation))
 readReadReservationLogEntry = readLogEntry "ReadReservation"
 
-readReadReservationsLogEntry :: String -> Maybe (LogEntry (LocalTime, LocalTime) [Reservation])
+readReadReservationsLogEntry :: String -> Maybe (LogEntry LocalTime [Reservation])
 readReadReservationsLogEntry = readLogEntry "ReadReservations"
 
 readCreateReservationLogEntry :: String -> Maybe (LogEntry Reservation ())
@@ -48,7 +48,7 @@ readCurrentTimeLogEntry = readLogEntry "CurrentTime"
 
 data ReplayData = ReplayData {
     observationsOfRead :: Map UUID [Maybe Reservation]
-  , observationsOfReads :: Map (LocalTime, LocalTime) [[Reservation]]
+  , observationsOfReads :: Map LocalTime [[Reservation]]
   , observationsOfCurrentTime :: [LocalTime]
   } deriving (Eq, Show, Read)
 
@@ -84,11 +84,11 @@ replayReadReservation rid = do
   State.modify (\s -> s { observationsOfRead = Map.insert rid rest m })
   return observation
 
-replayReadReservations :: LocalTime -> LocalTime -> State ReplayData [Reservation]
-replayReadReservations lo hi = do
+replayReadReservations :: LocalTime -> State ReplayData [Reservation]
+replayReadReservations t = do
   m <- State.gets observationsOfReads
-  let (observation:rest) = m ! (lo, hi)
-  State.modify (\s -> s { observationsOfReads = Map.insert (lo, hi) rest m })
+  let (observation:rest) = m ! t
+  State.modify (\s -> s { observationsOfReads = Map.insert t rest m })
   return observation
 
 replayCurrentTime :: State ReplayData LocalTime
@@ -104,6 +104,6 @@ replay d = replayImp d . runExceptT
     replayImp :: ReplayData -> ReservationsProgram a -> a
     replayImp rd p = State.evalState (iterM go p) rd
     go (InL (ReadReservation rid next)) = replayReadReservation rid >>= next
-    go (InL (ReadReservations lo hi next)) = replayReadReservations lo hi >>= next
+    go (InL (ReadReservations t next)) = replayReadReservations t >>= next
     go (InL (CreateReservation _ next)) = next
     go (InR (CurrentTime next)) = replayCurrentTime >>= next

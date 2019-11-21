@@ -30,7 +30,7 @@ data Reservation = Reservation
 
 data ReservationsInstruction next =
     ReadReservation UUID (Maybe Reservation -> next)
-  | ReadReservations LocalTime LocalTime ([Reservation] -> next)
+  | ReadReservations LocalTime ([Reservation] -> next)
   | CreateReservation Reservation next
   deriving Functor
 
@@ -41,8 +41,8 @@ type ReservationsProgram = Free (Sum ReservationsInstruction ClockInstruction)
 readReservation :: UUID -> ReservationsProgram (Maybe Reservation)
 readReservation rid = liftF $ InL $ ReadReservation rid id
 
-readReservations :: LocalTime -> LocalTime -> ReservationsProgram [Reservation]
-readReservations lo hi = liftF $ InL $ ReadReservations lo hi id
+readReservations :: LocalTime -> ReservationsProgram [Reservation]
+readReservations t = liftF $ InL $ ReadReservations t id
 
 createReservation :: Reservation -> ReservationsProgram ()
 createReservation r = liftF $ InL $ CreateReservation r ()
@@ -123,15 +123,10 @@ tryAccept :: NominalDiffTime
 tryAccept seatingDuration tables r = do
   now <- lift currentTime
   _ <- liftEither $ validateReservation now r
-
-  let reservationStartsAt = reservationDate r
-  let earlierReservationThatOverlapsStartsAt =
-        addLocalTime (negate seatingDuration) reservationStartsAt
-  let reservationEndsAt = addLocalTime seatingDuration reservationStartsAt
   reservations <-
     fmap (removeNonOverlappingReservations seatingDuration r) <$>
-    lift $
-    readReservations earlierReservationThatOverlapsStartsAt reservationEndsAt
+    lift $ readReservations $ reservationDate r
+
   _ <- liftEither $ canAccommodateReservation tables reservations r
 
   lift $ createReservation r
