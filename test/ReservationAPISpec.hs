@@ -35,6 +35,58 @@ import API
 
 reservationAPITests :: [Test]
 reservationAPITests = [
+  testGroup "Remove non-overlapping reservations" [
+    testProperty "returns reservation if already reserved" $ \
+      (Positive sd) (AnyReservation r) -> do
+      let actual = removeNonOverlappingReservations sd [r] r
+      [r] === actual
+    ,
+    testProperty "returns no reservations that start a seating duration after the reservation" $ \
+      (Positive sd) (fmap getValidReservation -> rs) (ValidReservation r) -> do
+      let actual = removeNonOverlappingReservations sd rs r
+      
+      let reservationEndsAt = addLocalTime sd $ reservationDate r
+      not $ any (\x -> reservationEndsAt < reservationDate x) actual
+    ,
+    testProperty "returns no reservations that end before the reservation starts" $ \
+      (Positive sd) (fmap getValidReservation -> rs) (ValidReservation r) -> do
+      let actual = removeNonOverlappingReservations sd rs r
+
+      let endsBeforeReservationsStarts x =
+            addLocalTime sd (reservationDate x) < reservationDate r
+      not $ any endsBeforeReservationsStarts actual
+    ,
+    testProperty "returns reservations that start at the same time as the reservation" $ \
+      (Positive sd) (fmap getValidReservation -> rs) (ValidReservation r) -> do
+      let expected = fmap (\x -> x { reservationDate = reservationDate r }) rs
+      let actual = removeNonOverlappingReservations sd expected r
+      expected === actual
+    ,
+    testProperty "returns reservations that start almost a seating duration before the reservation" $ \
+      (Positive sd) (fmap getValidReservation -> rs) (ValidReservation r) -> do
+      let precision = toEnum 1
+      let aSeatingDurationBefore =
+            addLocalTime (negate sd + precision) $ reservationDate r
+      let expected =
+            fmap (\x -> x { reservationDate = aSeatingDurationBefore }) rs
+      
+      let actual = removeNonOverlappingReservations sd expected r
+      
+      expected === actual
+    ,
+    testProperty "returns reservations that start almost a seating duration after the reservation" $ \
+      (Positive sd) (fmap getValidReservation -> rs) (ValidReservation r) -> do
+      let precision = toEnum 1
+      let aSeatingDurationAfter =
+            addLocalTime (sd - precision) $ reservationDate r
+      let expected =
+            fmap (\x -> x { reservationDate = aSeatingDurationAfter }) rs
+      
+      let actual = removeNonOverlappingReservations sd expected r
+      
+      expected === actual
+  ]
+  ,
   testGroup "Accommodate" $ [
     testProperty "rejects any reservation when restaurant has no tables" $ \
       (tables :: [Int]) q -> do

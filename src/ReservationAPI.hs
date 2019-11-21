@@ -79,6 +79,20 @@ validateReservation now (Reservation rid d n e q) = do
 addLocalTime :: NominalDiffTime -> LocalTime -> LocalTime
 addLocalTime x = utcToLocalTime utc . addUTCTime x . localTimeToUTC utc
 
+removeNonOverlappingReservations :: NominalDiffTime
+                                 -> [Reservation]
+                                 ->  Reservation
+                                 -> [Reservation]
+removeNonOverlappingReservations seatingDuration rs r =
+  let reservationStartsAt = reservationDate r
+      aSeatingDurationBefore =
+        addLocalTime (negate seatingDuration) reservationStartsAt
+      aSeatingDurationAfter =
+        addLocalTime seatingDuration reservationStartsAt
+      overlaps x = let t = reservationDate x
+                   in aSeatingDurationBefore < t && t < aSeatingDurationAfter
+  in filter overlaps rs
+
 canAccommodate :: (Foldable f, Foldable g, Ord a, Num a)
                => f a -> g a -> a -> Bool
 canAccommodate resources reservations q =
