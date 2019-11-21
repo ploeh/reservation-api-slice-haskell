@@ -80,10 +80,10 @@ addLocalTime :: NominalDiffTime -> LocalTime -> LocalTime
 addLocalTime x = utcToLocalTime utc . addUTCTime x . localTimeToUTC utc
 
 removeNonOverlappingReservations :: NominalDiffTime
-                                 -> [Reservation]
                                  ->  Reservation
                                  -> [Reservation]
-removeNonOverlappingReservations seatingDuration rs r =
+                                 -> [Reservation]
+removeNonOverlappingReservations seatingDuration r rs =
   let reservationStartsAt = reservationDate r
       aSeatingDurationBefore =
         addLocalTime (negate seatingDuration) reservationStartsAt
@@ -129,6 +129,7 @@ tryAccept seatingDuration tables r = do
         addLocalTime (negate seatingDuration) reservationStartsAt
   let reservationEndsAt = addLocalTime seatingDuration reservationStartsAt
   reservations <-
+    fmap (removeNonOverlappingReservations seatingDuration r) <$>
     lift $
     readReservations earlierReservationThatOverlapsStartsAt reservationEndsAt
   _ <- liftEither $ canAccommodateReservation tables reservations r
