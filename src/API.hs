@@ -37,8 +37,7 @@ runInSQLServerAndOnSystemClock connStr = iterT go
   where go (InL rins) = runInSQLServer connStr rins
         go (InR cins) = runOnSystemClock cins
 
-reservationServer :: Monad m
-                  => ServerT ReservationAPI (FreeT (Sum ReservationsInstruction ClockInstruction) (ExceptT ServantErr m))
+reservationServer :: ServerT ReservationAPI (FreeT (Sum ReservationsInstruction ClockInstruction) Handler)
 reservationServer = getReservation :<|> postReservation
   where
     getReservation rid = do
@@ -52,6 +51,5 @@ reservationServer = getReservation :<|> postReservation
         Right () -> return ()
         Left err -> throwError $ err400 { errBody = err }
 
-server :: Monad m
-       => ServerT API (FreeT (Sum ReservationsInstruction ClockInstruction) (ExceptT ServantErr m))
+server :: ServerT ReservationAPI (FreeT (Sum ReservationsInstruction ClockInstruction) Handler)
 server = reservationServer

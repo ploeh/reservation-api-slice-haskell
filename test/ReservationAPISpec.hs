@@ -133,4 +133,4 @@ app :: IO Application
 app = do
   ref <- newIORef Map.empty
   return $
-    serve api $ hoistServer api (Handler . runInFakeDBAndIn2019 ref) server
+    serve api $ hoistServer api (runInFakeDBAndIn2019 ref) server
