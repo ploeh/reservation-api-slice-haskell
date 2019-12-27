@@ -31,13 +31,15 @@ runOnSystemClock (CurrentTime next) =
 
 runInSQLServerAndOnSystemClock :: MonadIO m
                                => Text
-                               -> FreeT (Sum ReservationsInstruction ClockInstruction) m a
+                               -> ReservationsProgramT m a
                                -> m a
 runInSQLServerAndOnSystemClock connStr = iterT go
   where go (InL rins) = runInSQLServer connStr rins
         go (InR cins) = runOnSystemClock cins
 
-reservationServer :: ServerT ReservationAPI (FreeT (Sum ReservationsInstruction ClockInstruction) Handler)
+type ReservationsProgramT = FreeT (Sum ReservationsInstruction ClockInstruction)        
+
+reservationServer :: ServerT ReservationAPI (ReservationsProgramT Handler)
 reservationServer = getReservation :<|> postReservation
   where
     getReservation rid = do
@@ -51,5 +53,5 @@ reservationServer = getReservation :<|> postReservation
         Right () -> return ()
         Left err -> throwError $ err400 { errBody = err }
 
-server :: ServerT ReservationAPI (FreeT (Sum ReservationsInstruction ClockInstruction) Handler)
+server :: ServerT ReservationAPI (ReservationsProgramT Handler)
 server = reservationServer

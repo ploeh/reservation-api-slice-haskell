@@ -123,7 +123,7 @@ runIn2019 (CurrentTime next) = next now2019
 
 runInFakeDBAndIn2019 :: MonadIO m
                      => IORef DB
-                     -> FreeT (Sum ReservationsInstruction ClockInstruction) m a
+                     -> ReservationsProgramT m a
                      -> m a
 runInFakeDBAndIn2019 ref = iterT go
   where go (InL rins) = runInFakeDB ref rins
